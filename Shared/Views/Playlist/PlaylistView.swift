@@ -22,6 +22,7 @@ struct PlaylistListView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
                     ForEach(playlistVM.playlists) { pl in

@@ -43,8 +43,11 @@ struct SearchView: View {
                         resultsList
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("搜索")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
@@ -140,6 +143,7 @@ struct SearchView: View {
                 .foregroundStyle(.secondary)
             Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - 空状态
@@ -158,6 +162,7 @@ struct SearchView: View {
                 .foregroundStyle(.secondary)
             Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - 结果列表
