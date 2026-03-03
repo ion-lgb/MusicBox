@@ -11,6 +11,7 @@
 		0525A3A44220C15A4B6799AC /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6E93B11B748BB735631B17EB /* MediaPlayer.framework */; };
 		0F6D1352DF5B3AF84603E684 /* Playlist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2144ABA818ECD7998B612AD8 /* Playlist.swift */; };
 		263E3D6A036C72E2C1625AD2 /* MusicSourceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 990A226D19A7B62FE65F3827 /* MusicSourceEngine.swift */; };
+		2DE1D6E4DEC442362BBA4C3A /* LyricParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A482F8641A1E4185FC0799FD /* LyricParser.swift */; };
 		30F65AA3BDF68686783569C6 /* MusicSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477D7D82EAF8F76E99BBA750 /* MusicSource.swift */; };
 		3359074A8F65E480887580BF /* Song.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB514B31AF07E0A6C2555F70 /* Song.swift */; };
 		36B00DCC5BDCF01F5C45E82A /* PlaylistViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33792A650247964A67B73323 /* PlaylistViewModel.swift */; };
@@ -35,6 +36,7 @@
 		9EF947A7A7983C691F5AC5F0 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9BD470FD1C34E44EB755C8D /* PlayerView.swift */; };
 		B156ECC1A52333A014C1B424 /* MusicBoxApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB480D36EA1F05AAF015F00F /* MusicBoxApp.swift */; };
 		B53B47F109C37781D530A509 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9BD470FD1C34E44EB755C8D /* PlayerView.swift */; };
+		BE55FC641E461A8E15D964E2 /* LyricParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A482F8641A1E4185FC0799FD /* LyricParser.swift */; };
 		C46476C439F653D23A075015 /* PlaylistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E824983DE6549FD30D3E5717 /* PlaylistView.swift */; };
 		CDA176DB8EAA647203020144 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0E7B18B58AFE507C13982713 /* AVFoundation.framework */; };
 		CE081ADCCAF33598A8C6E193 /* AudioPlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4831D18D8311F9F2441BC3E4 /* AudioPlayerService.swift */; };
@@ -62,6 +64,7 @@
 		7FD5EF1C04333FF6CD677DBE /* MusicBox.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicBox.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9046883F99D7D50A602EF910 /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
 		990A226D19A7B62FE65F3827 /* MusicSourceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicSourceEngine.swift; sourceTree = "<group>"; };
+		A482F8641A1E4185FC0799FD /* LyricParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricParser.swift; sourceTree = "<group>"; };
 		B71BE449EDDB22E665E3C87A /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
 		D9BD470FD1C34E44EB755C8D /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		E824983DE6549FD30D3E5717 /* PlaylistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistView.swift; sourceTree = "<group>"; };
@@ -211,6 +214,7 @@
 		F136A74A922B6BDC253CCA36 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A482F8641A1E4185FC0799FD /* LyricParser.swift */,
 				477D7D82EAF8F76E99BBA750 /* MusicSource.swift */,
 				2144ABA818ECD7998B612AD8 /* Playlist.swift */,
 				FB514B31AF07E0A6C2555F70 /* Song.swift */,
@@ -302,6 +306,7 @@
 				563CA3EBC27A403B01F81E98 /* AudioPlayerService.swift in Sources */,
 				8BDF9CAFFD3B3460DADF33A4 /* ContentView.swift in Sources */,
 				59757CF808C8AF04BE4BEC0A /* Extensions.swift in Sources */,
+				2DE1D6E4DEC442362BBA4C3A /* LyricParser.swift in Sources */,
 				71F6D1D8385688D4CA509574 /* MusicBoxApp.swift in Sources */,
 				FA1781BE2C70F6D4C1DE7FBB /* MusicSource.swift in Sources */,
 				60B8D5A4E75C229771C3EDAD /* MusicSourceEngine.swift in Sources */,
@@ -325,6 +330,7 @@
 				CE081ADCCAF33598A8C6E193 /* AudioPlayerService.swift in Sources */,
 				67C7EFF0CF94CB50CEB2857C /* ContentView.swift in Sources */,
 				904FB6C2D4D3B972D8F338A3 /* Extensions.swift in Sources */,
+				BE55FC641E461A8E15D964E2 /* LyricParser.swift in Sources */,
 				B156ECC1A52333A014C1B424 /* MusicBoxApp.swift in Sources */,
 				30F65AA3BDF68686783569C6 /* MusicSource.swift in Sources */,
 				263E3D6A036C72E2C1625AD2 /* MusicSourceEngine.swift in Sources */,

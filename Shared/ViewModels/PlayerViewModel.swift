@@ -5,15 +5,25 @@ import Combine
 @MainActor @Observable
 final class PlayerViewModel {
     let audioPlayer = AudioPlayerService()
+
+    // 歌词
     var lyricText: String = ""
+    var lyricLines: [LyricLine] = []
+    var currentLyricIndex: Int = -1
+
+    // UI 状态
     var isLoadingUrl = false
     var showFullPlayer = false
+    var showLyricPanel = false
+    var showPlayQueue = false
     var playError: String?
 
     private var cancellables = Set<AnyCancellable>()
+    private var lyricTimer: Timer?
 
     init() {
         setupNotifications()
+        startLyricTimer()
     }
 
     // MARK: - 播放
@@ -21,7 +31,7 @@ final class PlayerViewModel {
     func playSong(_ song: Song, engine: MusicSourceEngine) async {
         isLoadingUrl = true
         playError = nil
-        audioPlayer.currentSong = song  // 先设置当前歌曲让 UI 响应
+        audioPlayer.currentSong = song
 
         do {
             print("[Player] 正在获取播放链接: \(song.name) - \(song.artist)")
@@ -34,12 +44,14 @@ final class PlayerViewModel {
             Task {
                 let lyric = await engine.getLyric(song: song)
                 self.lyricText = lyric
+                self.lyricLines = LyricParser.parse(lyric)
+                self.currentLyricIndex = -1
+                print("[Player] 歌词加载完成: \(self.lyricLines.count) 行")
             }
         } catch {
             isLoadingUrl = false
             playError = error.localizedDescription
             print("[Player] 播放失败: \(error)")
-            // 3秒后自动清除错误
             Task {
                 try? await Task.sleep(for: .seconds(3))
                 self.playError = nil
@@ -70,6 +82,20 @@ final class PlayerViewModel {
 
     func seek(to progress: Double) {
         audioPlayer.seek(to: progress)
+    }
+
+    // MARK: - 歌词同步
+
+    private func startLyricTimer() {
+        lyricTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self, !self.lyricLines.isEmpty else { return }
+                let newIndex = LyricParser.currentIndex(for: self.audioPlayer.currentTime, in: self.lyricLines)
+                if newIndex != self.currentLyricIndex {
+                    self.currentLyricIndex = newIndex
+                }
+            }
+        }
     }
 
     // MARK: - Notifications

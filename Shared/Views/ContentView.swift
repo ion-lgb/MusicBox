@@ -19,12 +19,65 @@ struct ContentView: View {
     #if os(macOS)
     private var macOSLayout: some View {
         VStack(spacing: 0) {
-            NavigationSplitView {
-                SidebarView()
-                    .navigationSplitViewColumnWidth(min: 200, ideal: 220)
-            } detail: {
-                SearchView()
+            ZStack {
+                // 主内容
+                NavigationSplitView {
+                    SidebarView()
+                        .navigationSplitViewColumnWidth(min: 200, ideal: 220)
+                } detail: {
+                    SearchView()
+                }
+
+                // 歌词面板（右侧覆盖）
+                if playerVM.showLyricPanel {
+                    HStack(spacing: 0) {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation(.spring(duration: 0.3)) {
+                                    playerVM.showLyricPanel = false
+                                }
+                            }
+                        LyricPanelView()
+                            .frame(width: 400)
+                            .transition(.move(edge: .trailing))
+                    }
+                    .transition(.opacity)
+                }
+
+                // 播放队列面板（右侧覆盖）
+                if playerVM.showPlayQueue {
+                    HStack(spacing: 0) {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation(.spring(duration: 0.3)) {
+                                    playerVM.showPlayQueue = false
+                                }
+                            }
+                        PlayQueueView()
+                            .frame(width: 350)
+                            .transition(.move(edge: .trailing))
+                    }
+                    .transition(.opacity)
+                }
             }
+
+            // 错误提示
+            if let error = playerVM.playError {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text(error)
+                }
+                .font(.caption)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity)
+                .background(.red.gradient)
+            }
+
+            // 底部播放条
             if playerVM.audioPlayer.currentSong != nil {
                 MiniPlayerView()
             }
