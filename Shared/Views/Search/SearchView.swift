@@ -51,6 +51,8 @@ struct SearchView: View {
         .navigationTitle("搜索")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+        .toolbarBackgroundVisibility(.visible, for: .tabBar)
         #endif
     }
 

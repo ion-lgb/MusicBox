@@ -58,6 +58,11 @@ struct PlaylistListView: View {
             }
         }
         .navigationTitle("歌单")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+        .toolbarBackgroundVisibility(.visible, for: .tabBar)
+        #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showCreate = true } label: {

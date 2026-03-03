@@ -166,6 +166,8 @@ struct SettingsView: View {
         .navigationTitle("设置")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+        .toolbarBackgroundVisibility(.visible, for: .tabBar)
         #endif
     }
 

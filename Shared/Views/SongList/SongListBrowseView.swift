@@ -48,6 +48,8 @@ struct SongListBrowseView: View {
         .navigationTitle("歌单")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+        .toolbarBackgroundVisibility(.visible, for: .tabBar)
         #endif
         .task { await loadPlaylists() }
     }

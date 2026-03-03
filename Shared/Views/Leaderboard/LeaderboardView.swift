@@ -136,6 +136,8 @@ struct LeaderboardView: View {
         .navigationTitle("排行榜")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+        .toolbarBackgroundVisibility(.visible, for: .tabBar)
         #endif
         .onAppear { loadBoard() }
     }
