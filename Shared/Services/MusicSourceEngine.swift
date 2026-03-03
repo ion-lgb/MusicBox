@@ -476,16 +476,31 @@ final class MusicSourceEngine {
                         callback?.call(withArguments: [error.localizedDescription, NSNull(), NSNull()])
                         return
                     }
-                    let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                    let bodyString = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
                     let httpResp = response as? HTTPURLResponse
                     let status = httpResp?.statusCode ?? 200
                     print("[LX HTTP] \(urlString.prefix(60)) -> \(status)")
-                    let resp: [String: Any] = [
-                        "statusCode": status,
-                        "headers": httpResp?.allHeaderFields as? [String: String] ?? [:],
-                        "body": body
-                    ]
-                    callback?.call(withArguments: [NSNull(), resp, body])
+                    print("[LX HTTP] body: \(bodyString.prefix(200))")
+
+                    // 洛雪桌面端会自动把 JSON body 解析成对象
+                    // 脚本依赖 resp.body.code 这样的对象属性访问
+                    // 所以需要通过 JS 的 JSON.parse 来解析 body
+                    let escapedBody = bodyString
+                        .replacingOccurrences(of: "\\", with: "\\\\")
+                        .replacingOccurrences(of: "\"", with: "\\\"")
+                        .replacingOccurrences(of: "\n", with: "\\n")
+                        .replacingOccurrences(of: "\r", with: "\\r")
+                        .replacingOccurrences(of: "\t", with: "\\t")
+
+                    // 尝试在 JS 侧解析 JSON
+                    let parsedBody = context.evaluateScript("(function(){ try { return JSON.parse(\"\(escapedBody)\"); } catch(e) { return \"\(escapedBody)\"; } })()")
+
+                    let resp = JSValue(newObjectIn: context)!
+                    resp.setObject(status, forKeyedSubscript: "statusCode" as NSString)
+                    resp.setObject(parsedBody, forKeyedSubscript: "body" as NSString)
+                    resp.setObject(httpResp?.allHeaderFields ?? [:], forKeyedSubscript: "headers" as NSString)
+
+                    callback?.call(withArguments: [NSNull(), resp, bodyString])
                 }
             }.resume()
 
