@@ -150,6 +150,9 @@ struct SidebarView: View {
                 NavigationLink { SearchView() } label: {
                     Label("搜索", systemImage: "magnifyingglass")
                 }
+                NavigationLink { LeaderboardView() } label: {
+                    Label("排行榜", systemImage: "chart.bar.fill")
+                }
             }
             Section("我的") {
                 NavigationLink { PlaylistListView() } label: {

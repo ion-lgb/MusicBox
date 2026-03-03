@@ -404,6 +404,108 @@ final class MusicSourceEngine {
         }
     }
 
+    // MARK: - 排行榜 API
+
+    func getLeaderboard(platform: MusicPlatform, type: LeaderboardType) async -> [Song] {
+        do {
+            switch platform {
+            case .netease:
+                return try await getLeaderboardNetease(type: type)
+            case .qq:
+                return try await getLeaderboardQQ(type: type)
+            case .kugou:
+                return try await getLeaderboardKugou(type: type)
+            case .migu:
+                return try await searchPlatform(keyword: type == .hot ? "热歌" : "新歌", platform: .migu)
+            }
+        } catch {
+            print("[Leaderboard] 获取排行榜失败: \(error)")
+            return []
+        }
+    }
+
+    private func getLeaderboardNetease(type: LeaderboardType) async throws -> [Song] {
+        // 网易云榜单 ID
+        let boardId: Int
+        switch type {
+        case .hot: boardId = 3778678  // 热歌榜
+        case .new: boardId = 3779629  // 新歌榜
+        case .soar: boardId = 19723756 // 飙升榜
+        case .original: boardId = 2884035 // 原创榜
+        }
+
+        let url = URL(string: "https://music.163.com/api/playlist/detail?id=\(boardId)")!
+        var req = URLRequest(url: url)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://music.163.com", forHTTPHeaderField: "Referer")
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let result = json["result"] as? [String: Any],
+              let tracks = result["tracks"] as? [[String: Any]] else {
+            return []
+        }
+
+        return tracks.prefix(50).compactMap { s -> Song? in
+            guard let id = s["id"] as? Int,
+                  let name = s["name"] as? String else { return nil }
+            let artists = (s["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: " / ") ?? ""
+            let albumInfo = s["album"] as? [String: Any]
+            let album = albumInfo?["name"] as? String ?? ""
+            let duration = (s["duration"] as? Int).map { TimeInterval($0) / 1000.0 } ?? 0
+            let coverUrl = albumInfo?["picUrl"] as? String
+            return Song(id: "wy_\(id)", name: name, artist: artists, album: album,
+                       duration: duration, platform: .netease, platformId: "\(id)", coverUrl: coverUrl)
+        }
+    }
+
+    private func getLeaderboardQQ(type: LeaderboardType) async throws -> [Song] {
+        // QQ 榜单 ID
+        let topId: Int
+        switch type {
+        case .hot: topId = 26   // 热歌榜
+        case .new: topId = 27   // 新歌榜
+        case .soar: topId = 4   // 飙升榜
+        case .original: topId = 62 // 原创榜
+        }
+
+        let url = URL(string: "https://c.y.qq.com/v8/fcg-bin/fcg_v8_toplist_cp.fcg?topid=\(topId)&page=detail&format=json&type=top&song_begin=0&song_num=50")!
+        var req = URLRequest(url: url)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://y.qq.com", forHTTPHeaderField: "Referer")
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let songlist = json["songlist"] as? [[String: Any]] else {
+            return []
+        }
+
+        return songlist.compactMap { item -> Song? in
+            guard let songData = item["data"] as? [String: Any],
+                  let mid = songData["songmid"] as? String,
+                  let name = songData["songname"] as? String else { return nil }
+            let artists = (songData["singer"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: " / ") ?? ""
+            let album = songData["albumname"] as? String ?? ""
+            let duration = (songData["interval"] as? Int).map { TimeInterval($0) } ?? 0
+            let albumMid = songData["albummid"] as? String ?? ""
+            let coverUrl = albumMid.isEmpty ? nil : "https://y.qq.com/music/photo_new/T002R300x300M000\(albumMid).jpg"
+            return Song(id: "tx_\(mid)", name: name, artist: artists, album: album,
+                       duration: duration, platform: .qq, platformId: mid, coverUrl: coverUrl)
+        }
+    }
+
+    private func getLeaderboardKugou(type: LeaderboardType) async throws -> [Song] {
+        // 酷狗排行榜 - 使用搜索热门关键词作为替代
+        let keyword: String
+        switch type {
+        case .hot: keyword = "热歌"
+        case .new: keyword = "新歌"
+        case .soar: keyword = "飙升"
+        case .original: keyword = "原创"
+        }
+        return try await searchKugou(keyword: keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? keyword)
+    }
+
     // MARK: - JS 上下文
 
     private func loadSavedSources() {

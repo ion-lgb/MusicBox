@@ -255,5 +255,6 @@ struct SongRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .songContextMenu(song)
     }
 }

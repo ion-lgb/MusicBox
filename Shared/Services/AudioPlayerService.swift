@@ -169,6 +169,13 @@ final class AudioPlayerService {
         if currentIndex == -1 { currentIndex = 0 }
     }
 
+    /// 插入到当前歌曲的下一首
+    func insertNext(_ song: Song) {
+        let insertAt = min(currentIndex + 1, queue.count)
+        queue.insert(song, at: insertAt)
+        if currentIndex == -1 { currentIndex = 0 }
+    }
+
     // MARK: - 私有方法
 
     private func setupAudioSession() {
