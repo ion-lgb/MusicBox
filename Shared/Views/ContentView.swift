@@ -136,22 +136,40 @@ struct ContentView: View {
     private var iOSContent: some View {
         TabView {
             Tab("搜索", systemImage: "magnifyingglass") {
-                NavigationStack { SearchView() }
+                NavigationStack {
+                    SearchView()
+                        .toolbarVisibility(.hidden, for: .navigationBar)
+                }
             }
             Tab("排行榜", systemImage: "chart.bar") {
-                NavigationStack { LeaderboardView() }
+                NavigationStack {
+                    LeaderboardView()
+                        .toolbarVisibility(.hidden, for: .navigationBar)
+                }
             }
             Tab("歌单", systemImage: "square.stack") {
-                NavigationStack { SongListBrowseView() }
+                NavigationStack {
+                    SongListBrowseView()
+                        .toolbarVisibility(.hidden, for: .navigationBar)
+                }
             }
             Tab("我的", systemImage: "music.note.list") {
-                NavigationStack { PlaylistListView() }
+                NavigationStack {
+                    PlaylistListView()
+                        .toolbarVisibility(.hidden, for: .navigationBar)
+                }
             }
             Tab("下载", systemImage: "arrow.down.circle") {
-                NavigationStack { DownloadView() }
+                NavigationStack {
+                    DownloadView()
+                        .toolbarVisibility(.hidden, for: .navigationBar)
+                }
             }
             Tab("设置", systemImage: "gearshape") {
-                NavigationStack { SettingsView() }
+                NavigationStack {
+                    SettingsView()
+                        .toolbarVisibility(.hidden, for: .navigationBar)
+                }
             }
         }
         .tint(.purple)
