@@ -238,10 +238,18 @@ struct SongRow: View {
                 Spacer(minLength: 0)
 
                 // 时长
-                Text(song.durationText)
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(.tertiary)
+                if song.duration > 0 {
+                    Text(song.durationText)
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(.tertiary)
+                }
+
+                // 播放按钮
+                Image(systemName: isPlaying && playerVM.audioPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(isPlaying ? DS.color(for: song.platform) : .secondary.opacity(0.6))
+                    .symbolRenderingMode(.hierarchical)
             }
             .padding(.vertical, 10)
             .contentShape(Rectangle())
