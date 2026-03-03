@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 
-/// 主视图 - 根据平台自适应布局
 struct ContentView: View {
     @Environment(PlayerViewModel.self) private var playerVM
     @Environment(PlaylistViewModel.self) private var playlistVM
@@ -15,60 +14,46 @@ struct ContentView: View {
         #endif
     }
 
-    // MARK: - macOS 侧边栏 + 内容
+    // MARK: - macOS
 
     #if os(macOS)
     private var macOSLayout: some View {
         VStack(spacing: 0) {
             NavigationSplitView {
                 SidebarView()
-                    .navigationSplitViewColumnWidth(min: 200, ideal: 230)
+                    .navigationSplitViewColumnWidth(min: 200, ideal: 220)
             } detail: {
                 SearchView()
             }
-
             if playerVM.audioPlayer.currentSong != nil {
                 MiniPlayerView()
             }
         }
-        .frame(minWidth: 900, minHeight: 620)
+        .frame(minWidth: 900, minHeight: 600)
         .modelContainer(for: [Playlist.self, PlaylistItem.self])
         .onAppear {
-            if let context = try? ModelContext(ModelContainer(for: Playlist.self, PlaylistItem.self)) {
-                playlistVM.setModelContext(context)
+            if let ctx = try? ModelContext(ModelContainer(for: Playlist.self, PlaylistItem.self)) {
+                playlistVM.setModelContext(ctx)
             }
         }
     }
     #endif
 
-    // MARK: - iOS Tab 布局
+    // MARK: - iOS
 
     #if os(iOS)
     private var iOSLayout: some View {
         ZStack(alignment: .bottom) {
             TabView {
-                NavigationStack {
-                    SearchView()
-                }
-                .tabItem {
-                    Label("搜索", systemImage: "magnifyingglass")
-                }
-
-                NavigationStack {
-                    PlaylistListView()
-                }
-                .tabItem {
-                    Label("歌单", systemImage: "music.note.list")
-                }
-
-                NavigationStack {
-                    SettingsView()
-                }
-                .tabItem {
-                    Label("设置", systemImage: "gearshape.fill")
-                }
+                NavigationStack { SearchView() }
+                    .tabItem { Label("搜索", systemImage: "magnifyingglass") }
+                NavigationStack { PlaylistListView() }
+                    .tabItem { Label("歌单", systemImage: "music.note.list") }
+                NavigationStack { SettingsView() }
+                    .tabItem { Label("设置", systemImage: "gearshape.fill") }
             }
-            .safeAreaPadding(.bottom, playerVM.audioPlayer.currentSong != nil ? 60 : 0)
+            .tint(.purple)
+            .safeAreaPadding(.bottom, playerVM.audioPlayer.currentSong != nil ? 64 : 0)
 
             if playerVM.audioPlayer.currentSong != nil {
                 MiniPlayerView()
@@ -87,31 +72,23 @@ struct ContentView: View {
     #endif
 }
 
-// MARK: - macOS 侧边栏
+// MARK: - 侧边栏
 
 struct SidebarView: View {
     var body: some View {
         List {
             Section("发现") {
-                NavigationLink {
-                    SearchView()
-                } label: {
-                    Label("搜索音乐", systemImage: "magnifyingglass")
+                NavigationLink { SearchView() } label: {
+                    Label("搜索", systemImage: "magnifyingglass")
                 }
             }
-
             Section("我的") {
-                NavigationLink {
-                    PlaylistListView()
-                } label: {
+                NavigationLink { PlaylistListView() } label: {
                     Label("歌单", systemImage: "music.note.list")
                 }
             }
-
             Section {
-                NavigationLink {
-                    SettingsView()
-                } label: {
+                NavigationLink { SettingsView() } label: {
                     Label("设置", systemImage: "gearshape.fill")
                 }
             }

@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// 底部迷你播放条
+// MARK: - 迷你播放条
+
 struct MiniPlayerView: View {
     @Environment(PlayerViewModel.self) private var playerVM
     @Environment(MusicSourceEngine.self) private var engine
@@ -10,25 +11,22 @@ struct MiniPlayerView: View {
     var body: some View {
         if let song = player.currentSong {
             VStack(spacing: 0) {
-                // 进度条
+                // 细进度条
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
+                        Rectangle().fill(.white.opacity(0.08))
                         Rectangle()
-                            .fill(Color.primary.opacity(0.06))
-                        Rectangle()
-                            .fill(Color(hex: song.platform.iconColor) ?? .accentColor)
+                            .fill(DS.color(for: song.platform))
                             .frame(width: geo.size.width * player.progress)
-                            .animation(.linear(duration: 0.3), value: player.progress)
+                            .animation(.linear(duration: 0.5), value: player.progress)
                     }
                 }
-                .frame(height: 2.5)
+                .frame(height: 3)
 
-                HStack(spacing: 14) {
-                    // 封面
-                    AlbumArtView(platform: song.platform, size: 46, cornerRadius: 10)
-                        .shadow(color: (Color(hex: song.platform.iconColor) ?? .gray).opacity(0.3), radius: 6, y: 2)
+                // 播放条内容
+                HStack(spacing: 12) {
+                    AlbumCover(platform: song.platform, size: 44, isCircle: true)
 
-                    // 歌曲信息
                     VStack(alignment: .leading, spacing: 2) {
                         Text(song.name)
                             .font(.subheadline.weight(.medium))
@@ -41,112 +39,108 @@ struct MiniPlayerView: View {
 
                     Spacer()
 
-                    // 播放控制
-                    HStack(spacing: 20) {
-                        Button {
-                            Task { await playerVM.playPrevious(engine: engine) }
-                        } label: {
+                    // 控制按钮
+                    HStack(spacing: 18) {
+                        Button { Task { await playerVM.playPrevious(engine: engine) } } label: {
                             Image(systemName: "backward.fill")
-                                .font(.callout)
-                                .foregroundStyle(.primary)
+                                .font(.body)
                         }
-                        .buttonStyle(.plain)
 
-                        Button {
-                            playerVM.togglePlayPause()
-                        } label: {
-                            Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.title3)
-                                .frame(width: 38, height: 38)
-                                .background(
-                                    Circle().fill(Color(hex: song.platform.iconColor) ?? .accentColor)
-                                )
-                                .foregroundStyle(.white)
+                        Button { playerVM.togglePlayPause() } label: {
+                            Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                                .font(.system(size: 34))
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, DS.color(for: song.platform))
                         }
-                        .buttonStyle(.plain)
 
-                        Button {
-                            Task { await playerVM.playNext(engine: engine) }
-                        } label: {
+                        Button { Task { await playerVM.playNext(engine: engine) } } label: {
                             Image(systemName: "forward.fill")
-                                .font(.callout)
-                                .foregroundStyle(.primary)
+                                .font(.body)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.primary)
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.vertical, 8)
             }
             .background(.ultraThinMaterial)
             #if os(iOS)
-            .clipShape(RoundedRectangle(cornerRadius: 18))
-            .shadow(color: .black.opacity(0.12), radius: 12, y: -2)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.15), radius: 10, y: -2)
             .padding(.horizontal, 8)
             .padding(.bottom, 2)
-            .onTapGesture {
-                playerVM.showFullPlayer = true
-            }
+            .onTapGesture { playerVM.showFullPlayer = true }
             #endif
         }
     }
 }
 
-/// 全屏播放器 (iOS)
+// MARK: - 全屏播放器
+
 struct FullPlayerView: View {
     @Environment(PlayerViewModel.self) private var playerVM
     @Environment(MusicSourceEngine.self) private var engine
     @Environment(\.dismiss) private var dismiss
 
     private var player: AudioPlayerService { playerVM.audioPlayer }
+    @State private var dragOffset: CGFloat = 0
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                // 背景
-                if let song = player.currentSong {
-                    (Color(hex: song.platform.iconColor) ?? Color.accentColor)
-                        .opacity(0.1)
-                        .ignoresSafeArea()
-                }
+        let song = player.currentSong
+        let themeColor = song.map { DS.color(for: $0.platform) } ?? .purple
 
-                VStack(spacing: 28) {
+        GeometryReader { geometry in
+            ZStack {
+                // 模糊渐变背景
+                themeColor
+                    .ignoresSafeArea()
+                    .overlay(Color.black.opacity(0.4))
+
+                VStack(spacing: 0) {
+                    // 拖拽手柄
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(.white.opacity(0.4))
+                        .frame(width: 40, height: 5)
+                        .padding(.top, 14)
+                        .padding(.bottom, 30)
+
                     Spacer()
 
                     // 封面
-                    if let song = player.currentSong {
-                        AlbumArtView(platform: song.platform, size: 260, cornerRadius: 24)
-                            .shadow(color: (Color(hex: song.platform.iconColor) ?? .gray).opacity(0.35), radius: 30, y: 15)
-                            .scaleEffect(player.isPlaying ? 1.0 : 0.92)
-                            .animation(.spring(duration: 0.5), value: player.isPlaying)
+                    if let song = song {
+                        AlbumCover(platform: song.platform, size: 260, isCircle: true)
+                            .scaleEffect(player.isPlaying ? 1.0 : 0.85)
+                            .animation(.spring(duration: 0.5, bounce: 0.3), value: player.isPlaying)
                     }
+
+                    Spacer().frame(height: 36)
 
                     // 歌曲信息
                     VStack(spacing: 6) {
-                        Text(player.currentSong?.name ?? "--")
+                        Text(song?.name ?? "--")
                             .font(.title2.bold())
+                            .foregroundStyle(.white)
                             .lineLimit(1)
+
                         HStack(spacing: 6) {
-                            if let song = player.currentSong {
-                                PlatformBadge(platform: song.platform)
-                            }
-                            Text(player.currentSong?.artist ?? "--")
-                                .font(.body)
-                                .foregroundStyle(.secondary)
+                            if let song = song { PlatformTag(platform: song.platform) }
+                            Text(song?.artist ?? "--")
+                                .foregroundStyle(.white.opacity(0.7))
                         }
+                        .font(.subheadline)
                     }
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 40)
+
+                    Spacer().frame(height: 32)
 
                     // 进度条
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         Slider(
-                            value: Binding(
-                                get: { player.progress },
-                                set: { playerVM.seek(to: $0) }
-                            ),
+                            value: Binding(get: { player.progress }, set: { playerVM.seek(to: $0) }),
                             in: 0...1
                         )
-                        .tint(player.currentSong.flatMap { Color(hex: $0.platform.iconColor) } ?? .accentColor)
+                        .tint(.white)
 
                         HStack {
                             Text(player.currentTime.formattedTime)
@@ -154,13 +148,15 @@ struct FullPlayerView: View {
                             Text(player.duration.formattedTime)
                         }
                         .font(.caption)
-                        .foregroundStyle(.secondary)
                         .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.5))
                     }
-                    .padding(.horizontal, 36)
+                    .padding(.horizontal, 32)
 
-                    // 播放控制
-                    HStack(spacing: 36) {
+                    Spacer().frame(height: 28)
+
+                    // 控制按钮
+                    HStack(spacing: 40) {
                         Button {
                             player.playMode = PlayMode.allCases[
                                 (PlayMode.allCases.firstIndex(of: player.playMode)! + 1) % PlayMode.allCases.count
@@ -168,57 +164,60 @@ struct FullPlayerView: View {
                         } label: {
                             Image(systemName: player.playMode.icon)
                                 .font(.title3)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.6))
                         }
 
-                        Button {
-                            Task { await playerVM.playPrevious(engine: engine) }
-                        } label: {
+                        Button { Task { await playerVM.playPrevious(engine: engine) } } label: {
                             Image(systemName: "backward.fill")
                                 .font(.title)
+                                .foregroundStyle(.white)
                         }
 
-                        Button {
-                            playerVM.togglePlayPause()
-                        } label: {
-                            Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                                .font(.system(size: 68))
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundStyle(player.currentSong.flatMap { Color(hex: $0.platform.iconColor) } ?? .accentColor)
+                        Button { playerVM.togglePlayPause() } label: {
+                            Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                                .font(.largeTitle)
+                                .foregroundStyle(.white)
+                                .frame(width: 70, height: 70)
+                                .background(.white.opacity(0.15))
+                                .clipShape(Circle())
                         }
 
-                        Button {
-                            Task { await playerVM.playNext(engine: engine) }
-                        } label: {
+                        Button { Task { await playerVM.playNext(engine: engine) } } label: {
                             Image(systemName: "forward.fill")
                                 .font(.title)
+                                .foregroundStyle(.white)
                         }
 
-                        Button {
-                            // TODO: 播放队列
-                        } label: {
+                        Button {} label: {
                             Image(systemName: "list.bullet")
                                 .font(.title3)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.6))
                         }
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.primary)
 
                     Spacer()
                 }
+                .offset(y: dragOffset)
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.down")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(.secondary)
+            // 拖拽关闭
+            .gesture(
+                DragGesture()
+                    .onChanged { v in
+                        dragOffset = max(0, v.translation.height)
                     }
-                }
-            }
+                    .onEnded { v in
+                        if v.translation.height > geometry.size.height / 4 {
+                            withAnimation(.spring()) {
+                                dragOffset = geometry.size.height
+                                dismiss()
+                            }
+                        } else {
+                            withAnimation(.spring()) { dragOffset = 0 }
+                        }
+                    }
+            )
         }
+        .ignoresSafeArea()
     }
 }
