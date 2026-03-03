@@ -46,11 +46,16 @@ struct MiniPlayerView: View {
                                 .font(.body)
                         }
 
-                        Button { playerVM.togglePlayPause() } label: {
-                            Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                                .font(.system(size: 34))
-                                .symbolRenderingMode(.palette)
-                                .foregroundStyle(.white, DS.color(for: song.platform))
+                        if playerVM.isLoadingUrl {
+                            ProgressView()
+                                .frame(width: 34, height: 34)
+                        } else {
+                            Button { playerVM.togglePlayPause() } label: {
+                                Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                                    .font(.system(size: 34))
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(.white, DS.color(for: song.platform))
+                            }
                         }
 
                         Button { Task { await playerVM.playNext(engine: engine) } } label: {

@@ -8,6 +8,7 @@ final class PlayerViewModel {
     var lyricText: String = ""
     var isLoadingUrl = false
     var showFullPlayer = false
+    var playError: String?
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -19,16 +20,30 @@ final class PlayerViewModel {
 
     func playSong(_ song: Song, engine: MusicSourceEngine) async {
         isLoadingUrl = true
+        playError = nil
+        audioPlayer.currentSong = song  // 先设置当前歌曲让 UI 响应
+
         do {
+            print("[Player] 正在获取播放链接: \(song.name) - \(song.artist)")
             let url = try await engine.getSongUrl(song: song)
+            print("[Player] 获取到播放链接: \(url.prefix(80))...")
             audioPlayer.play(song: song, urlString: url)
             isLoadingUrl = false
+
             // 异步加载歌词
-            let lyric = try? await engine.getLyric(song: song)
-            self.lyricText = lyric ?? ""
+            Task {
+                let lyric = try? await engine.getLyric(song: song)
+                self.lyricText = lyric ?? ""
+            }
         } catch {
             isLoadingUrl = false
-            print("Play error:", error)
+            playError = error.localizedDescription
+            print("[Player] 播放失败: \(error)")
+            // 3秒后自动清除错误
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                self.playError = nil
+            }
         }
     }
 

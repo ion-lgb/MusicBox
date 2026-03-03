@@ -60,6 +60,22 @@ struct ContentView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .overlay(alignment: .top) {
+            if let error = playerVM.playError {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text(error)
+                }
+                .font(.caption)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.red.gradient, in: Capsule())
+                .padding(.top, 50)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .animation(.spring(duration: 0.3), value: playerVM.playError)
+            }
+        }
         .animation(.spring(duration: 0.35), value: playerVM.audioPlayer.currentSong != nil)
         .modelContainer(for: [Playlist.self, PlaylistItem.self])
         .sheet(isPresented: Binding(
