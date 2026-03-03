@@ -9,94 +9,76 @@ struct SearchView: View {
     var body: some View {
         @Bindable var vm = searchVM
         VStack(spacing: 0) {
-            // 搜索栏
-            searchBar
-
-            // 平台筛选
-            platformFilter
-
-            // 搜索结果
-            if searchVM.isSearching {
-                Spacer()
-                ProgressView("搜索中...")
-                    .padding()
-                Spacer()
-            } else if let error = searchVM.errorMessage {
-                Spacer()
-                VStack(spacing: 12) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text(error)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            } else if searchVM.results.isEmpty && !searchVM.keyword.isEmpty {
-                Spacer()
-                VStack(spacing: 12) {
-                    Image(systemName: "music.note")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text("没有找到相关歌曲")
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            } else if searchVM.results.isEmpty {
-                Spacer()
-                VStack(spacing: 12) {
-                    Image(systemName: "music.quarternote.3")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.tertiary)
-                    Text(engine.isLoaded ? "输入关键词搜索音乐" : "请先在设置中添加音源")
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            } else {
-                songList
+            // 搜索栏 + 平台筛选
+            VStack(spacing: DesignTokens.spacingSM) {
+                searchBar
+                platformFilter
             }
+            .padding(.horizontal, DesignTokens.spacingMD)
+            .padding(.top, DesignTokens.spacingSM)
+            .padding(.bottom, DesignTokens.spacingMD)
+
+            Divider()
+
+            // 内容区域
+            contentArea
         }
         .navigationTitle("搜索")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+        #endif
     }
 
-    // MARK: - 子视图
+    // MARK: - 搜索栏
 
     private var searchBar: some View {
         @Bindable var vm = searchVM
-        return HStack(spacing: 12) {
-            HStack {
+        return HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("搜索歌曲、歌手...", text: $vm.keyword)
+                    .font(.callout)
+
+                TextField("搜索歌曲、歌手、专辑...", text: $vm.keyword)
                     .textFieldStyle(.plain)
+                    .font(.body)
                     .onSubmit {
                         Task { await searchVM.search(engine: engine) }
                     }
+
                 if !searchVM.keyword.isEmpty {
                     Button {
                         searchVM.clear()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.tertiary)
+                            .font(.callout)
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(10)
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(.secondarySystemFill))
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.radiusMD))
 
-            Button("搜索") {
+            Button {
                 Task { await searchVM.search(engine: engine) }
+            } label: {
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.title2)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Color.accentColor)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
             .disabled(searchVM.keyword.isEmpty || searchVM.isSearching)
         }
-        .padding()
     }
 
+    // MARK: - 平台筛选
+
     private var platformFilter: some View {
-        @Bindable var vm = searchVM
-        return ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 FilterChip(title: "全部", isSelected: searchVM.selectedPlatform == nil) {
                     searchVM.selectedPlatform = nil
@@ -107,6 +89,7 @@ struct SearchView: View {
                 ForEach(MusicPlatform.allCases) { platform in
                     FilterChip(
                         title: platform.displayName,
+                        color: Color(hex: platform.iconColor),
                         isSelected: searchVM.selectedPlatform == platform
                     ) {
                         searchVM.selectedPlatform = platform
@@ -116,49 +99,110 @@ struct SearchView: View {
                     }
                 }
             }
-            .padding(.horizontal)
         }
-        .padding(.bottom, 8)
     }
 
+    // MARK: - 内容区域
+
+    @ViewBuilder
+    private var contentArea: some View {
+        if searchVM.isSearching {
+            VStack(spacing: 16) {
+                Spacer()
+                ProgressView()
+                    .controlSize(.large)
+                Text("搜索中...")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        } else if let error = searchVM.errorMessage {
+            emptyState(icon: "exclamationmark.triangle.fill", title: "出错了", subtitle: error, color: .orange)
+        } else if searchVM.results.isEmpty && !searchVM.keyword.isEmpty {
+            emptyState(icon: "magnifyingglass", title: "没有结果", subtitle: "试试换个关键词？", color: .secondary)
+        } else if searchVM.results.isEmpty {
+            if engine.isLoaded {
+                emptyState(icon: "music.magnifyingglass", title: "搜索音乐", subtitle: "输入关键词开始搜索", color: Color.accentColor)
+            } else {
+                emptyState(icon: "square.and.arrow.down", title: "添加音源", subtitle: "前往「设置」添加音源订阅地址", color: .orange)
+            }
+        } else {
+            songList
+        }
+    }
+
+    private func emptyState(icon: String, title: String, subtitle: String, color: Color) -> some View {
+        VStack(spacing: 14) {
+            Spacer()
+            Image(systemName: icon)
+                .font(.system(size: 42))
+                .foregroundStyle(color.opacity(0.6))
+                .symbolRenderingMode(.hierarchical)
+            Text(title)
+                .font(.title3.weight(.semibold))
+            Text(subtitle)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+        .padding(.horizontal, 40)
+    }
+
+    // MARK: - 歌曲列表
+
     private var songList: some View {
-        List(searchVM.results) { song in
-            SongRow(song: song) {
-                Task {
-                    await playerVM.playSongFromSearchResult(
-                        song, allResults: searchVM.results, engine: engine
-                    )
+        ScrollView {
+            LazyVStack(spacing: 2) {
+                ForEach(Array(searchVM.results.enumerated()), id: \.element.id) { index, song in
+                    SongRow(song: song, index: index + 1) {
+                        Task {
+                            await playerVM.playSongFromSearchResult(
+                                song, allResults: searchVM.results, engine: engine
+                            )
+                        }
+                    }
                 }
             }
+            .padding(.horizontal, DesignTokens.spacingMD)
+            .padding(.vertical, DesignTokens.spacingSM)
         }
-        .listStyle(.plain)
     }
 }
 
-/// 平台筛选标签
+// MARK: - 筛选标签
+
 struct FilterChip: View {
     let title: String
+    var color: Color? = nil
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.callout)
-                .fontWeight(isSelected ? .semibold : .regular)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
                 .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(isSelected ? Color.accentColor : Color.secondary.opacity(0.12))
+                .padding(.vertical, 7)
+                .background {
+                    if isSelected {
+                        Capsule().fill(color ?? Color.accentColor)
+                    } else {
+                        Capsule().fill(Color(.secondarySystemFill))
+                    }
+                }
                 .foregroundStyle(isSelected ? .white : .primary)
-                .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.2), value: isSelected)
     }
 }
 
-/// 歌曲行
+// MARK: - 歌曲行
+
 struct SongRow: View {
     let song: Song
+    var index: Int = 0
     let onTap: () -> Void
 
     @Environment(PlayerViewModel.self) private var playerVM
@@ -170,20 +214,41 @@ struct SongRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                // 平台标识
-                platformBadge
+                // 序号 / 正在播放动画
+                Group {
+                    if isCurrentSong && playerVM.audioPlayer.isPlaying {
+                        Image(systemName: "waveform")
+                            .symbolEffect(.variableColor.iterative)
+                            .foregroundStyle(Color(hex: song.platform.iconColor) ?? .accentColor)
+                    } else if isCurrentSong {
+                        Image(systemName: "pause.fill")
+                            .foregroundStyle(Color(hex: song.platform.iconColor) ?? .accentColor)
+                    } else {
+                        Text("\(index)")
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .font(.caption)
+                .frame(width: 24)
+
+                // 封面
+                AlbumArtView(platform: song.platform, size: 44, cornerRadius: 8)
 
                 // 歌曲信息
                 VStack(alignment: .leading, spacing: 3) {
                     Text(song.name)
                         .font(.body)
                         .fontWeight(isCurrentSong ? .semibold : .regular)
-                        .foregroundStyle(isCurrentSong ? Color.accentColor : .primary)
+                        .foregroundStyle(isCurrentSong ? Color(hex: song.platform.iconColor) ?? .accentColor : .primary)
                         .lineLimit(1)
-                    Text("\(song.artist) · \(song.album)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+
+                    HStack(spacing: 6) {
+                        PlatformBadge(platform: song.platform, compact: true)
+                        Text("\(song.artist) · \(song.album)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer()
@@ -191,28 +256,19 @@ struct SongRow: View {
                 // 时长
                 Text(song.durationText)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
                     .monospacedDigit()
-
-                // 正在播放指示
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background {
                 if isCurrentSong {
-                    Image(systemName: playerVM.audioPlayer.isPlaying ? "speaker.wave.2.fill" : "speaker.fill")
-                        .font(.caption)
-                        .foregroundStyle(Color.accentColor)
+                    RoundedRectangle(cornerRadius: DesignTokens.radiusSM)
+                        .fill((Color(hex: song.platform.iconColor) ?? .accentColor).opacity(0.08))
                 }
             }
-            .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    private var platformBadge: some View {
-        Text(String(song.platform.displayName.prefix(1)))
-            .font(.caption2.bold())
-            .frame(width: 24, height: 24)
-            .background(Color(hex: song.platform.iconColor) ?? .gray)
-            .foregroundStyle(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }

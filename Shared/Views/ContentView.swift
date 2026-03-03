@@ -15,20 +15,23 @@ struct ContentView: View {
         #endif
     }
 
-    // MARK: - macOS 三栏布局
+    // MARK: - macOS 侧边栏 + 内容
 
     #if os(macOS)
     private var macOSLayout: some View {
         VStack(spacing: 0) {
             NavigationSplitView {
                 SidebarView()
-                    .navigationSplitViewColumnWidth(min: 200, ideal: 220)
+                    .navigationSplitViewColumnWidth(min: 200, ideal: 230)
             } detail: {
                 SearchView()
             }
-            MiniPlayerView()
+
+            if playerVM.audioPlayer.currentSong != nil {
+                MiniPlayerView()
+            }
         }
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 900, minHeight: 620)
         .modelContainer(for: [Playlist.self, PlaylistItem.self])
         .onAppear {
             if let context = try? ModelContext(ModelContainer(for: Playlist.self, PlaylistItem.self)) {
@@ -62,15 +65,17 @@ struct ContentView: View {
                     SettingsView()
                 }
                 .tabItem {
-                    Label("设置", systemImage: "gearshape")
+                    Label("设置", systemImage: "gearshape.fill")
                 }
             }
-            .padding(.bottom, playerVM.audioPlayer.currentSong != nil ? 64 : 0)
+            .safeAreaPadding(.bottom, playerVM.audioPlayer.currentSong != nil ? 60 : 0)
 
             if playerVM.audioPlayer.currentSong != nil {
                 MiniPlayerView()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.spring(duration: 0.35), value: playerVM.audioPlayer.currentSong != nil)
         .modelContainer(for: [Playlist.self, PlaylistItem.self])
         .sheet(isPresented: Binding(
             get: { playerVM.showFullPlayer },
@@ -82,26 +87,33 @@ struct ContentView: View {
     #endif
 }
 
-/// macOS 侧边栏
+// MARK: - macOS 侧边栏
+
 struct SidebarView: View {
     var body: some View {
         List {
-            NavigationLink {
-                SearchView()
-            } label: {
-                Label("搜索", systemImage: "magnifyingglass")
+            Section("发现") {
+                NavigationLink {
+                    SearchView()
+                } label: {
+                    Label("搜索音乐", systemImage: "magnifyingglass")
+                }
             }
 
-            NavigationLink {
-                PlaylistListView()
-            } label: {
-                Label("歌单", systemImage: "music.note.list")
+            Section("我的") {
+                NavigationLink {
+                    PlaylistListView()
+                } label: {
+                    Label("歌单", systemImage: "music.note.list")
+                }
             }
 
-            NavigationLink {
-                SettingsView()
-            } label: {
-                Label("设置", systemImage: "gearshape")
+            Section {
+                NavigationLink {
+                    SettingsView()
+                } label: {
+                    Label("设置", systemImage: "gearshape.fill")
+                }
             }
         }
         .listStyle(.sidebar)
