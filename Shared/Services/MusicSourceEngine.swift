@@ -192,49 +192,83 @@ final class MusicSourceEngine {
         }
     }
 
-    /// 通过洛雪脚本获取歌词
-    func getLyric(song: Song) async throws -> String {
-        guard isLoaded, let handler = requestHandler else { return "" }
-        let sourceKey = song.platform.lxSourceKey
-
-        return try await withCheckedThrowingContinuation { continuation in
-            let musicInfo: [String: Any] = [
-                "songmid": song.platformId,
-                "name": song.name,
-                "singer": song.artist,
-                "source": sourceKey,
-                "id": song.platformId
-            ]
-            let params: [String: Any] = [
-                "source": sourceKey,
-                "action": "lyric",
-                "info": ["musicInfo": musicInfo]
-            ]
-            guard let context = jsContext else {
-                continuation.resume(returning: "")
-                return
+    /// 内置歌词获取（各平台独立 API）
+    func getLyric(song: Song) async -> String {
+        do {
+            switch song.platform {
+            case .netease:
+                return try await getLyricNetease(id: song.platformId)
+            case .qq:
+                return try await getLyricQQ(mid: song.platformId)
+            case .kugou:
+                return try await getLyricKugou(hash: song.platformId)
+            case .migu:
+                return try await getLyricMigu(id: song.platformId)
             }
-            let paramsJSValue = JSValue(object: params, in: context)!
-
-            guard let promise = handler.call(withArguments: [paramsJSValue]) else {
-                continuation.resume(returning: "")
-                return
-            }
-
-            let thenBlock: @convention(block) (JSValue?) -> Void = { result in
-                if let dict = result?.toDictionary(), let lyric = dict["lyric"] as? String {
-                    continuation.resume(returning: lyric)
-                } else {
-                    continuation.resume(returning: result?.toString() ?? "")
-                }
-            }
-            let catchBlock: @convention(block) (JSValue?) -> Void = { _ in
-                continuation.resume(returning: "")
-            }
-
-            promise.invokeMethod("then", withArguments: [JSValue(object: thenBlock, in: context)!])
-                .invokeMethod("catch", withArguments: [JSValue(object: catchBlock, in: context)!])
+        } catch {
+            print("[Lyric] 获取歌词失败: \(error)")
+            return ""
         }
+    }
+
+    // MARK: - 各平台歌词 API
+
+    private func getLyricNetease(id: String) async throws -> String {
+        let url = URL(string: "https://music.163.com/api/song/lyric?id=\(id)&lv=1&tv=1")!
+        var req = URLRequest(url: url)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://music.163.com", forHTTPHeaderField: "Referer")
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let lrc = json["lrc"] as? [String: Any],
+              let lyric = lrc["lyric"] as? String else { return "" }
+        return lyric
+    }
+
+    private func getLyricQQ(mid: String) async throws -> String {
+        let url = URL(string: "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=\(mid)&format=json&nobase64=1")!
+        var req = URLRequest(url: url)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://y.qq.com", forHTTPHeaderField: "Referer")
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let lyric = json["lyric"] as? String else { return "" }
+        return lyric
+    }
+
+    private func getLyricKugou(hash: String) async throws -> String {
+        // 先获取 accesskey
+        let searchUrl = URL(string: "https://krcs.kugou.com/search?ver=1&man=yes&hash=\(hash)")!
+        var req1 = URLRequest(url: searchUrl)
+        req1.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        let (data1, _) = try await URLSession.shared.data(for: req1)
+        guard let json1 = try JSONSerialization.jsonObject(with: data1) as? [String: Any],
+              let candidates = json1["candidates"] as? [[String: Any]],
+              let first = candidates.first,
+              let accesskey = first["accesskey"] as? String,
+              let kid = first["id"] as? String else { return "" }
+
+        // 再获取歌词
+        let lyricUrl = URL(string: "https://lyrics.kugou.com/download?ver=1&client=pc&id=\(kid)&accesskey=\(accesskey)&fmt=lrc")!
+        var req2 = URLRequest(url: lyricUrl)
+        req2.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        let (data2, _) = try await URLSession.shared.data(for: req2)
+        guard let json2 = try JSONSerialization.jsonObject(with: data2) as? [String: Any],
+              let content = json2["content"] as? String,
+              let decoded = Data(base64Encoded: content),
+              let lyric = String(data: decoded, encoding: .utf8) else { return "" }
+        return lyric
+    }
+
+    private func getLyricMigu(id: String) async throws -> String {
+        let url = URL(string: "https://music.migu.cn/v3/api/music/audioPlayer/getLyric?copyrightId=\(id)")!
+        var req = URLRequest(url: url)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://music.migu.cn", forHTTPHeaderField: "Referer")
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let lyric = json["lyric"] as? String else { return "" }
+        return lyric
     }
 
     // MARK: - 各平台搜索 API
@@ -274,10 +308,18 @@ final class MusicSourceEngine {
             guard let id = s["id"] as? Int,
                   let name = s["name"] as? String else { return nil }
             let artists = (s["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: " / ") ?? ""
-            let album = (s["album"] as? [String: Any])?["name"] as? String ?? ""
+            let albumInfo = s["album"] as? [String: Any]
+            let album = albumInfo?["name"] as? String ?? ""
             let duration = (s["duration"] as? Int).map { TimeInterval($0) / 1000.0 } ?? 0
+            // 封面: album.picUrl (网易云搜索 API 返回)
+            var coverUrl: String? = nil
+            if let picUrl = albumInfo?["picUrl"] as? String {
+                coverUrl = picUrl
+            } else if let albumId = albumInfo?["id"] as? Int, albumId > 0 {
+                coverUrl = "https://p1.music.126.net/\(albumId)/\(albumId).jpg"
+            }
             return Song(id: "wy_\(id)", name: name, artist: artists, album: album,
-                       duration: duration, platform: .netease, platformId: "\(id)", coverUrl: nil)
+                       duration: duration, platform: .netease, platformId: "\(id)", coverUrl: coverUrl)
         }
     }
 
@@ -330,8 +372,10 @@ final class MusicSourceEngine {
             let artist = s["singername"] as? String ?? ""
             let album = s["album_name"] as? String ?? ""
             let duration = (s["duration"] as? Int).map { TimeInterval($0) } ?? 0
+            // 酷狗封面
+            let coverUrl = (s["trans_param"] as? [String: Any])?["union_cover"] as? String
             return Song(id: "kg_\(hash)", name: fullName, artist: artist, album: album,
-                       duration: duration, platform: .kugou, platformId: hash, coverUrl: nil)
+                       duration: duration, platform: .kugou, platformId: hash, coverUrl: coverUrl)
         }
     }
 

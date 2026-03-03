@@ -207,7 +207,7 @@ struct SongRow: View {
             HStack(spacing: 14) {
                 // 封面
                 ZStack {
-                    AlbumCover(platform: song.platform, size: 50, isCircle: false)
+                    AlbumCover(platform: song.platform, size: 50, isCircle: false, coverUrl: song.coverUrl)
 
                     if isPlaying {
                         RoundedRectangle(cornerRadius: 9)

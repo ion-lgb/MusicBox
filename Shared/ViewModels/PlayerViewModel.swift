@@ -32,8 +32,8 @@ final class PlayerViewModel {
 
             // 异步加载歌词
             Task {
-                let lyric = try? await engine.getLyric(song: song)
-                self.lyricText = lyric ?? ""
+                let lyric = await engine.getLyric(song: song)
+                self.lyricText = lyric
             }
         } catch {
             isLoadingUrl = false

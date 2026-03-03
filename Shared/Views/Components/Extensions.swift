@@ -30,8 +30,34 @@ struct AlbumCover: View {
     let platform: MusicPlatform
     let size: CGFloat
     var isCircle: Bool = false
+    var coverUrl: String? = nil
 
     var body: some View {
+        Group {
+            if let urlStr = coverUrl, let url = URL(string: urlStr) {
+                // 有封面 URL - 加载真实封面
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .failure:
+                        fallbackView
+                    default:
+                        ProgressView()
+                            .frame(width: size, height: size)
+                    }
+                }
+                .frame(width: size, height: size)
+                .clipShape(isCircle ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: size * 0.18)))
+                .shadow(color: DS.color(for: platform).opacity(0.35), radius: 8, y: 4)
+            } else {
+                // 无封面 URL - 渐变占位
+                fallbackView
+            }
+        }
+    }
+
+    private var fallbackView: some View {
         Group {
             if isCircle {
                 Circle()

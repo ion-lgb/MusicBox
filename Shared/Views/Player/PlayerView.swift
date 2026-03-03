@@ -25,7 +25,7 @@ struct MiniPlayerView: View {
 
                 // 播放条内容
                 HStack(spacing: 12) {
-                    AlbumCover(platform: song.platform, size: 44, isCircle: true)
+                    AlbumCover(platform: song.platform, size: 44, isCircle: true, coverUrl: song.coverUrl)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(song.name)
@@ -114,7 +114,7 @@ struct FullPlayerView: View {
 
                     // 封面
                     if let song = song {
-                        AlbumCover(platform: song.platform, size: 260, isCircle: true)
+                        AlbumCover(platform: song.platform, size: 260, isCircle: true, coverUrl: song.coverUrl)
                             .scaleEffect(player.isPlaying ? 1.0 : 0.85)
                             .animation(.spring(duration: 0.5, bounce: 0.3), value: player.isPlaying)
                     }
