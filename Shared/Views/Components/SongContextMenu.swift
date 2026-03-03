@@ -5,6 +5,7 @@ struct SongContextMenu: ViewModifier {
     let song: Song
     @Environment(PlayerViewModel.self) private var playerVM
     @Environment(MusicSourceEngine.self) private var engine
+    @Environment(DownloadService.self) private var downloadService
 
     func body(content: Content) -> some View {
         content.contextMenu {
@@ -27,6 +28,15 @@ struct SongContextMenu: ViewModifier {
                 playerVM.audioPlayer.addToQueue(song)
             } label: {
                 Label("添加到播放队列", systemImage: "text.append")
+            }
+
+            Divider()
+
+            // 下载
+            Button {
+                downloadService.download(song)
+            } label: {
+                Label("下载", systemImage: "arrow.down.circle")
             }
 
             Divider()

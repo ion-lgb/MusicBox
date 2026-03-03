@@ -158,6 +158,9 @@ struct SidebarView: View {
                 NavigationLink { PlaylistListView() } label: {
                     Label("歌单", systemImage: "music.note.list")
                 }
+                NavigationLink { DownloadView() } label: {
+                    Label("下载", systemImage: "arrow.down.circle")
+                }
             }
             Section {
                 NavigationLink { SettingsView() } label: {

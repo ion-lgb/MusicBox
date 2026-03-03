@@ -7,6 +7,7 @@ struct MusicBoxApp: App {
     @State private var playlistViewModel = PlaylistViewModel()
     @State private var settingsViewModel = SettingsViewModel()
     @State private var musicSourceEngine = MusicSourceEngine()
+    @State private var downloadService = DownloadService()
 
     var body: some Scene {
         WindowGroup {
@@ -16,6 +17,10 @@ struct MusicBoxApp: App {
                 .environment(playlistViewModel)
                 .environment(settingsViewModel)
                 .environment(musicSourceEngine)
+                .environment(downloadService)
+                .onAppear {
+                    downloadService.setEngine(musicSourceEngine)
+                }
         }
         #if os(macOS)
         .windowStyle(.titleBar)
