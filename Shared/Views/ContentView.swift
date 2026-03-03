@@ -18,76 +18,96 @@ struct ContentView: View {
 
     #if os(macOS)
     private var macOSLayout: some View {
+        macOSContent
+            .frame(minWidth: 900, minHeight: 600)
+            .modelContainer(for: [Playlist.self, PlaylistItem.self])
+            .onAppear {
+                if let ctx = try? ModelContext(ModelContainer(for: Playlist.self, PlaylistItem.self)) {
+                    playlistVM.setModelContext(ctx)
+                }
+            }
+            .modifier(MacOSKeyboardShortcuts())
+    }
+
+    private var macOSContent: some View {
         VStack(spacing: 0) {
             ZStack {
-                // 主内容
-                NavigationSplitView {
-                    SidebarView()
-                        .navigationSplitViewColumnWidth(min: 200, ideal: 220)
-                } detail: {
-                    SearchView()
-                }
-
-                // 歌词面板（右侧覆盖）
-                if playerVM.showLyricPanel {
-                    HStack(spacing: 0) {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                withAnimation(.spring(duration: 0.3)) {
-                                    playerVM.showLyricPanel = false
-                                }
-                            }
-                        LyricPanelView()
-                            .frame(width: 400)
-                            .transition(.move(edge: .trailing))
-                    }
-                    .transition(.opacity)
-                }
-
-                // 播放队列面板（右侧覆盖）
-                if playerVM.showPlayQueue {
-                    HStack(spacing: 0) {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                withAnimation(.spring(duration: 0.3)) {
-                                    playerVM.showPlayQueue = false
-                                }
-                            }
-                        PlayQueueView()
-                            .frame(width: 350)
-                            .transition(.move(edge: .trailing))
-                    }
-                    .transition(.opacity)
-                }
+                mainNavigation
+                lyricOverlay
+                queueOverlay
             }
-
-            // 错误提示
-            if let error = playerVM.playError {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                    Text(error)
-                }
-                .font(.caption)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-                .frame(maxWidth: .infinity)
-                .background(.red.gradient)
-            }
-
-            // 底部播放条
-            if playerVM.audioPlayer.currentSong != nil {
-                MiniPlayerView()
-            }
+            errorBanner
+            playerBar
         }
-        .frame(minWidth: 900, minHeight: 600)
-        .modelContainer(for: [Playlist.self, PlaylistItem.self])
-        .onAppear {
-            if let ctx = try? ModelContext(ModelContainer(for: Playlist.self, PlaylistItem.self)) {
-                playlistVM.setModelContext(ctx)
+    }
+
+    private var mainNavigation: some View {
+        NavigationSplitView {
+            SidebarView()
+                .navigationSplitViewColumnWidth(min: 200, ideal: 220)
+        } detail: {
+            SearchView()
+        }
+    }
+
+    @ViewBuilder
+    private var lyricOverlay: some View {
+        if playerVM.showLyricPanel {
+            HStack(spacing: 0) {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.spring(duration: 0.3)) {
+                            playerVM.showLyricPanel = false
+                        }
+                    }
+                LyricPanelView()
+                    .frame(width: 400)
+                    .transition(.move(edge: .trailing))
             }
+            .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var queueOverlay: some View {
+        if playerVM.showPlayQueue {
+            HStack(spacing: 0) {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.spring(duration: 0.3)) {
+                            playerVM.showPlayQueue = false
+                        }
+                    }
+                PlayQueueView()
+                    .frame(width: 350)
+                    .transition(.move(edge: .trailing))
+            }
+            .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var errorBanner: some View {
+        if let error = playerVM.playError {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                Text(error)
+            }
+            .font(.caption)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .background(.red.gradient)
+        }
+    }
+
+    @ViewBuilder
+    private var playerBar: some View {
+        if playerVM.audioPlayer.currentSong != nil {
+            MiniPlayerView()
         }
     }
     #endif
@@ -141,6 +161,16 @@ struct ContentView: View {
     #endif
 }
 
+// MARK: - macOS 快捷键（via menu commands）
+
+#if os(macOS)
+struct MacOSKeyboardShortcuts: ViewModifier {
+    func body(content: Content) -> some View {
+        content  // 快捷键在 MusicBoxApp 中通过 .commands 实现
+    }
+}
+#endif
+
 // MARK: - 侧边栏
 
 struct SidebarView: View {
@@ -152,6 +182,9 @@ struct SidebarView: View {
                 }
                 NavigationLink { LeaderboardView() } label: {
                     Label("排行榜", systemImage: "chart.bar.fill")
+                }
+                NavigationLink { SongListView() } label: {
+                    Label("歌单导入", systemImage: "rectangle.stack.badge.plus")
                 }
             }
             Section("我的") {

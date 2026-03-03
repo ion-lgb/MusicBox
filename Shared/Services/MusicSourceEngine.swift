@@ -84,7 +84,7 @@ final class MusicSourceEngine {
 
     // MARK: - 内置搜索（直接调用各平台 API）
 
-    func search(keyword: String, platform: MusicPlatform? = nil) async throws -> [Song] {
+    func search(keyword: String, platform: MusicPlatform? = nil, page: Int = 1) async throws -> [Song] {
         guard isLoaded else {
             throw MusicSourceError.engineNotReady
         }
@@ -97,7 +97,7 @@ final class MusicSourceEngine {
             for p in platforms {
                 group.addTask {
                     do {
-                        return try await self.searchPlatform(keyword: keyword, platform: p)
+                        return try await self.searchPlatform(keyword: keyword, platform: p, page: page)
                     } catch {
                         print("[Search] \(p.displayName) 搜索失败: \(error)")
                         return []
@@ -273,25 +273,26 @@ final class MusicSourceEngine {
 
     // MARK: - 各平台搜索 API
 
-    private func searchPlatform(keyword: String, platform: MusicPlatform) async throws -> [Song] {
+    private func searchPlatform(keyword: String, platform: MusicPlatform, page: Int = 1) async throws -> [Song] {
         let encoded = keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? keyword
 
         switch platform {
         case .netease:
-            return try await searchNetease(keyword: encoded)
+            return try await searchNetease(keyword: encoded, page: page)
         case .qq:
-            return try await searchQQ(keyword: encoded)
+            return try await searchQQ(keyword: encoded, page: page)
         case .kugou:
-            return try await searchKugou(keyword: encoded)
+            return try await searchKugou(keyword: encoded, page: page)
         case .migu:
-            return try await searchMigu(keyword: encoded)
+            return try await searchMigu(keyword: encoded, page: page)
         }
     }
 
     // MARK: 网易云
 
-    private func searchNetease(keyword: String) async throws -> [Song] {
-        let url = URL(string: "https://music.163.com/api/search/get/web?s=\(keyword)&type=1&offset=0&limit=30")!
+    private func searchNetease(keyword: String, page: Int = 1) async throws -> [Song] {
+        let offset = (page - 1) * 30
+        let url = URL(string: "https://music.163.com/api/search/get/web?s=\(keyword)&type=1&offset=\(offset)&limit=30")!
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
@@ -325,8 +326,8 @@ final class MusicSourceEngine {
 
     // MARK: QQ 音乐
 
-    private func searchQQ(keyword: String) async throws -> [Song] {
-        let url = URL(string: "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=\(keyword)&p=1&n=30&format=json")!
+    private func searchQQ(keyword: String, page: Int = 1) async throws -> [Song] {
+        let url = URL(string: "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=\(keyword)&p=\(page)&n=30&format=json")!
         var req = URLRequest(url: url)
         req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
         req.setValue("https://y.qq.com", forHTTPHeaderField: "Referer")
@@ -354,8 +355,8 @@ final class MusicSourceEngine {
 
     // MARK: 酷狗
 
-    private func searchKugou(keyword: String) async throws -> [Song] {
-        let url = URL(string: "https://mobileservice.kugou.com/api/v3/search/song?keyword=\(keyword)&page=1&pagesize=30")!
+    private func searchKugou(keyword: String, page: Int = 1) async throws -> [Song] {
+        let url = URL(string: "https://mobileservice.kugou.com/api/v3/search/song?keyword=\(keyword)&page=\(page)&pagesize=30")!
         var req = URLRequest(url: url)
         req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
 
@@ -381,8 +382,8 @@ final class MusicSourceEngine {
 
     // MARK: 咪咕
 
-    private func searchMigu(keyword: String) async throws -> [Song] {
-        let url = URL(string: "https://m.music.migu.cn/migu/remoting/scr_search_tag?keyword=\(keyword)&pgc=1&rows=30&type=2")!
+    private func searchMigu(keyword: String, page: Int = 1) async throws -> [Song] {
+        let url = URL(string: "https://m.music.migu.cn/migu/remoting/scr_search_tag?keyword=\(keyword)&pgc=\(page)&rows=30&type=2")!
         var req = URLRequest(url: url)
         req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
         req.setValue("https://m.music.migu.cn", forHTTPHeaderField: "Referer")
@@ -504,6 +505,99 @@ final class MusicSourceEngine {
         case .original: keyword = "原创"
         }
         return try await searchKugou(keyword: keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? keyword)
+    }
+
+    // MARK: - 歌单导入
+
+    struct PlaylistResult {
+        let name: String
+        let songs: [Song]
+    }
+
+    func importPlaylist(url: String) async throws -> PlaylistResult {
+        // 解析平台和 ID
+        if url.contains("163.com") || url.contains("netease") {
+            return try await importNeteasePlaylist(url: url)
+        } else if url.contains("y.qq.com") || url.contains("qq.com") {
+            return try await importQQPlaylist(url: url)
+        }
+        throw NSError(domain: "MusicBox", code: -1, userInfo: [NSLocalizedDescriptionKey: "不支持的歌单链接"])
+    }
+
+    private func importNeteasePlaylist(url: String) async throws -> PlaylistResult {
+        // 提取 ID
+        guard let idStr = extractId(from: url, pattern: #"(?:id=|playlist/)(\d+)"#),
+              let _ = Int(idStr) else {
+            throw NSError(domain: "MusicBox", code: -1, userInfo: [NSLocalizedDescriptionKey: "无法解析歌单 ID"])
+        }
+
+        let apiUrl = URL(string: "https://music.163.com/api/playlist/detail?id=\(idStr)")!
+        var req = URLRequest(url: apiUrl)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://music.163.com", forHTTPHeaderField: "Referer")
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let result = json["result"] as? [String: Any],
+              let tracks = result["tracks"] as? [[String: Any]] else {
+            throw NSError(domain: "MusicBox", code: -1, userInfo: [NSLocalizedDescriptionKey: "获取歌单失败"])
+        }
+
+        let name = result["name"] as? String ?? "未知歌单"
+        let songs = tracks.compactMap { s -> Song? in
+            guard let id = s["id"] as? Int,
+                  let songName = s["name"] as? String else { return nil }
+            let artists = (s["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: " / ") ?? ""
+            let albumInfo = s["album"] as? [String: Any]
+            let album = albumInfo?["name"] as? String ?? ""
+            let duration = (s["duration"] as? Int).map { TimeInterval($0) / 1000.0 } ?? 0
+            let coverUrl = albumInfo?["picUrl"] as? String
+            return Song(id: "wy_\(id)", name: songName, artist: artists, album: album,
+                       duration: duration, platform: .netease, platformId: "\(id)", coverUrl: coverUrl)
+        }
+
+        return PlaylistResult(name: name, songs: songs)
+    }
+
+    private func importQQPlaylist(url: String) async throws -> PlaylistResult {
+        guard let idStr = extractId(from: url, pattern: #"(?:id=|playlist/)(\d+)"#) else {
+            throw NSError(domain: "MusicBox", code: -1, userInfo: [NSLocalizedDescriptionKey: "无法解析歌单 ID"])
+        }
+
+        let apiUrl = URL(string: "https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?type=1&utf8=1&disstid=\(idStr)&format=json")!
+        var req = URLRequest(url: apiUrl)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://y.qq.com", forHTTPHeaderField: "Referer")
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let cdlist = json["cdlist"] as? [[String: Any]],
+              let first = cdlist.first,
+              let songlist = first["songlist"] as? [[String: Any]] else {
+            throw NSError(domain: "MusicBox", code: -1, userInfo: [NSLocalizedDescriptionKey: "获取歌单失败"])
+        }
+
+        let name = first["dissname"] as? String ?? "未知歌单"
+        let songs = songlist.compactMap { s -> Song? in
+            guard let mid = s["songmid"] as? String,
+                  let songName = s["songname"] as? String else { return nil }
+            let artists = (s["singer"] as? [[String: Any]])?.compactMap { $0["name"] as? String }.joined(separator: " / ") ?? ""
+            let album = s["albumname"] as? String ?? ""
+            let duration = (s["interval"] as? Int).map { TimeInterval($0) } ?? 0
+            let albumMid = s["albummid"] as? String ?? ""
+            let coverUrl = albumMid.isEmpty ? nil : "https://y.qq.com/music/photo_new/T002R300x300M000\(albumMid).jpg"
+            return Song(id: "tx_\(mid)", name: songName, artist: artists, album: album,
+                       duration: duration, platform: .qq, platformId: mid, coverUrl: coverUrl)
+        }
+
+        return PlaylistResult(name: name, songs: songs)
+    }
+
+    private func extractId(from url: String, pattern: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: url, range: NSRange(url.startIndex..., in: url)),
+              let range = Range(match.range(at: 1), in: url) else { return nil }
+        return String(url[range])
     }
 
     // MARK: - JS 上下文

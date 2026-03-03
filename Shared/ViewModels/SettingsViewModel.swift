@@ -8,6 +8,24 @@ final class SettingsViewModel {
     var addSourceError: String?
     var addSourceSuccess = false
 
+    // 音质
+    var selectedQuality: MusicQuality {
+        didSet { UserDefaults.standard.set(selectedQuality.rawValue, forKey: "selectedQuality") }
+    }
+
+    // 播放模式
+    var defaultPlayMode: PlayMode {
+        didSet { UserDefaults.standard.set(defaultPlayMode.rawValue, forKey: "defaultPlayMode") }
+    }
+
+    init() {
+        let qRaw = UserDefaults.standard.string(forKey: "selectedQuality") ?? MusicQuality.high.rawValue
+        selectedQuality = MusicQuality(rawValue: qRaw) ?? .high
+
+        let pRaw = UserDefaults.standard.string(forKey: "defaultPlayMode") ?? PlayMode.loop.rawValue
+        defaultPlayMode = PlayMode(rawValue: pRaw) ?? .loop
+    }
+
     func addSource(engine: MusicSourceEngine) async {
         let url = subscriptionUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty else {

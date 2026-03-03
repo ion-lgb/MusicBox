@@ -35,7 +35,7 @@ struct SearchView: View {
                         emptyView(icon: "magnifyingglass", text: "暂无结果", sub: "试试换个关键词", color: .secondary)
                     } else if searchVM.results.isEmpty {
                         if engine.isLoaded {
-                            emptyView(icon: "music.magnifyingglass", text: "搜索音乐", sub: "输入关键词开始搜索", color: .purple)
+                            searchHistoryOrEmpty
                         } else {
                             emptyView(icon: "square.and.arrow.down", text: "添加音源", sub: "前往「设置」添加音源订阅地址", color: .orange)
                         }
@@ -52,6 +52,58 @@ struct SearchView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
+    }
+
+    // MARK: - 搜索历史 / 空状态
+
+    private var searchHistoryOrEmpty: some View {
+        VStack(spacing: 16) {
+            if !searchVM.searchHistory.isEmpty && searchVM.keyword.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("搜索历史")
+                            .font(.subheadline.bold())
+                        Spacer()
+                        Button("清除") { searchVM.clearHistory() }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(searchVM.searchHistory, id: \.self) { keyword in
+                                Button {
+                                    searchVM.keyword = keyword
+                                    Task { await searchVM.search(engine: engine) }
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "clock.arrow.circlepath")
+                                            .foregroundStyle(.tertiary)
+                                        Text(keyword)
+                                            .font(.subheadline)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundStyle(.quaternary)
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 10)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                Divider().padding(.leading, 48)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                emptyView(icon: "music.magnifyingglass", text: "搜索音乐", sub: "输入关键词开始搜索", color: .purple)
+            }
+        }
     }
 
     // MARK: - 搜索框
@@ -186,6 +238,36 @@ struct SearchView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
+
+            // 加载更多
+            if searchVM.hasMore {
+                Button {
+                    Task { await searchVM.loadNextPage(engine: engine) }
+                } label: {
+                    HStack(spacing: 6) {
+                        if searchVM.isSearching {
+                            ProgressView().scaleEffect(0.7)
+                        }
+                        Text(searchVM.isSearching ? "加载中..." : "加载更多")
+                            .font(.subheadline)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(.quaternary.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
+
+            // 页码信息
+            if searchVM.currentPage > 0 && !searchVM.results.isEmpty {
+                Text("第 \(searchVM.currentPage) 页 · \(searchVM.results.count) 首")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.bottom, 8)
+            }
         }
     }
 }

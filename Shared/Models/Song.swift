@@ -54,3 +54,28 @@ struct SearchResult: Identifiable {
     let songs: [Song]
     let total: Int
 }
+
+/// 音质选择
+enum MusicQuality: String, CaseIterable, Identifiable, Codable {
+    case standard = "128k"
+    case high = "320k"
+    case lossless = "flac"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .standard: return "标准 128K"
+        case .high: return "高品质 320K"
+        case .lossless: return "无损 FLAC"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .standard: return "speaker.wave.1"
+        case .high: return "speaker.wave.2"
+        case .lossless: return "speaker.wave.3"
+        }
+    }
+}

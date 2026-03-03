@@ -5,10 +5,54 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(SettingsViewModel.self) private var settingsVM
     @Environment(MusicSourceEngine.self) private var engine
+    @Environment(DownloadService.self) private var downloadService
 
     var body: some View {
         @Bindable var vm = settingsVM
         List {
+            // 播放设置
+            Section {
+                Picker("默认音质", selection: $vm.selectedQuality) {
+                    ForEach(MusicQuality.allCases) { q in
+                        Label(q.displayName, systemImage: q.icon).tag(q)
+                    }
+                }
+
+                Picker("播放模式", selection: $vm.defaultPlayMode) {
+                    ForEach(PlayMode.allCases, id: \.self) { mode in
+                        Label(mode.rawValue, systemImage: mode.icon).tag(mode)
+                    }
+                }
+            } header: {
+                Label("播放", systemImage: "play.circle")
+            }
+
+            // 下载设置
+            Section {
+                HStack {
+                    Text("下载路径")
+                    Spacer()
+                    Text(downloadService.downloadPath)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    #if os(macOS)
+                    Button("更改") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseDirectories = true
+                        panel.canChooseFiles = false
+                        if panel.runModal() == .OK, let url = panel.url {
+                            downloadService.downloadPath = url.path
+                        }
+                    }
+                    .font(.caption)
+                    #endif
+                }
+            } header: {
+                Label("下载", systemImage: "arrow.down.circle")
+            }
+
             // 添加音源
             Section {
                 VStack(alignment: .leading, spacing: 10) {
@@ -93,6 +137,23 @@ struct SettingsView: View {
                 Label("已添加 (\(engine.sources.count))", systemImage: "square.stack")
             }
 
+            // 快捷键
+            #if os(macOS)
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    shortcutRow("⌘ Space", "播放 / 暂停")
+                    shortcutRow("⌘ →", "下一首")
+                    shortcutRow("⌘ ←", "上一首")
+                    shortcutRow("⌘ ↑", "音量增大")
+                    shortcutRow("⌘ ↓", "音量减小")
+                    shortcutRow("⌘ L", "显示/隐藏歌词")
+                    shortcutRow("⌘ F", "搜索")
+                }
+            } header: {
+                Label("快捷键", systemImage: "keyboard")
+            }
+            #endif
+
             // 关于
             Section {
                 LabeledContent("版本", value: "1.0.0")
@@ -104,4 +165,20 @@ struct SettingsView: View {
         }
         .navigationTitle("设置")
     }
+
+    #if os(macOS)
+    private func shortcutRow(_ key: String, _ desc: String) -> some View {
+        HStack {
+            Text(key)
+                .font(.system(.caption, design: .monospaced))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(.quaternary)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            Text(desc)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+    #endif
 }
