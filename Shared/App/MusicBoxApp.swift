@@ -9,6 +9,24 @@ struct MusicBoxApp: App {
     @State private var musicSourceEngine = MusicSourceEngine()
     @State private var downloadService = DownloadService()
 
+    init() {
+        #if os(iOS)
+        // iOS 26: 设置窗口背景色匹配内容，消除 Liquid Glass 卡片周围深色间隙
+        UIWindow.appearance().backgroundColor = .systemBackground
+        // 导航栏透明处理
+        let navAppearance = UINavigationBarAppearance()
+        navAppearance.configureWithDefaultBackground()
+        UINavigationBar.appearance().standardAppearance = navAppearance
+        UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
+        UINavigationBar.appearance().compactAppearance = navAppearance
+        // Tab bar 透明处理
+        let tabAppearance = UITabBarAppearance()
+        tabAppearance.configureWithDefaultBackground()
+        UITabBar.appearance().standardAppearance = tabAppearance
+        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
