@@ -113,14 +113,27 @@ final class MusicSourceEngine {
 
     /// 通过洛雪脚本获取歌曲播放 URL
     func getSongUrl(song: Song) async throws -> String {
-        guard isLoaded, let handler = requestHandler else {
+        guard isLoaded else {
             throw MusicSourceError.engineNotReady
         }
 
+        guard let handler = requestHandler else {
+            print("[LX] requestHandler 为空，脚本可能未注册 on('request') 事件")
+            print("[LX] scriptSources: \(scriptSources.keys.sorted())")
+            throw MusicSourceError.scriptError("音源脚本未注册 request handler，请检查脚本是否正确")
+        }
+
         let sourceKey = song.platform.lxSourceKey
+        print("[LX] 请求播放链接: source=\(sourceKey), songId=\(song.platformId), name=\(song.name)")
+
+        // 检查脚本是否支持该平台
+        if !scriptSources.isEmpty && scriptSources[sourceKey] == nil {
+            let supported = scriptSources.keys.sorted().joined(separator: ", ")
+            print("[LX] 脚本不支持 \(sourceKey)，支持的源: \(supported)")
+            throw MusicSourceError.scriptError("音源脚本不支持 \(song.platform.displayName)（支持: \(supported)）")
+        }
 
         return try await withCheckedThrowingContinuation { continuation in
-            // 构造 musicInfo 对象
             let musicInfo: [String: Any] = [
                 "songmid": song.platformId,
                 "name": song.name,
@@ -128,7 +141,7 @@ final class MusicSourceEngine {
                 "album": song.album,
                 "source": sourceKey,
                 "id": song.platformId,
-                "hash": song.platformId  // kg 用 hash
+                "hash": song.platformId
             ]
 
             let info: [String: Any] = [
@@ -149,23 +162,25 @@ final class MusicSourceEngine {
 
             let paramsJSValue = JSValue(object: params, in: context)!
 
-            // 调用 handler，期望返回 Promise
             guard let promise = handler.call(withArguments: [paramsJSValue]) else {
+                print("[LX] handler.call 返回 nil")
                 continuation.resume(throwing: MusicSourceError.noPlayUrl)
                 return
             }
 
-            // 处理 Promise 的 then/catch
             let thenBlock: @convention(block) (JSValue?) -> Void = { result in
                 guard let url = result?.toString(), !url.isEmpty, url != "undefined", url != "null" else {
+                    print("[LX] handler 返回了空 URL")
                     continuation.resume(throwing: MusicSourceError.noPlayUrl)
                     return
                 }
+                print("[LX] 获取到播放 URL: \(url.prefix(80))...")
                 continuation.resume(returning: url)
             }
 
             let catchBlock: @convention(block) (JSValue?) -> Void = { error in
                 let msg = error?.toString() ?? "Unknown error"
+                print("[LX] handler Promise 被 reject: \(msg)")
                 continuation.resume(throwing: MusicSourceError.scriptError(msg))
             }
 
@@ -407,20 +422,24 @@ final class MusicSourceEngine {
 
         // on: 注册事件处理
         let onBlock: @convention(block) (String, JSValue) -> Void = { [weak self] eventName, handler in
+            print("[LX] on('\(eventName)') 被调用")
             if eventName == "request" {
-                DispatchQueue.main.async {
-                    self?.requestHandler = handler
-                }
+                self?.requestHandler = handler
+                print("[LX] requestHandler 已注册")
             }
         }
 
         // send: 发送事件
         let sendBlock: @convention(block) (String, JSValue?) -> Void = { [weak self] eventName, data in
+            print("[LX] send('\(eventName)') 被调用")
             if eventName == "inited" {
                 if let dict = data?.toDictionary(), let srcs = dict["sources"] as? [String: Any] {
-                    DispatchQueue.main.async {
-                        self?.scriptSources = srcs
-                        print("[LX] 脚本初始化完成，支持源: \(srcs.keys.sorted())")
+                    self?.scriptSources = srcs
+                    print("[LX] 脚本初始化完成，支持源: \(srcs.keys.sorted())")
+                    for (key, val) in srcs {
+                        if let srcInfo = val as? [String: Any] {
+                            print("[LX]   \(key): \(srcInfo["name"] ?? ""), actions=\(srcInfo["actions"] ?? []), qualitys=\(srcInfo["qualitys"] ?? [])")
+                        }
                     }
                 }
             }
@@ -451,18 +470,23 @@ final class MusicSourceEngine {
             }
 
             URLSession.shared.dataTask(with: request) { data, response, error in
-                if let error = error {
-                    callback?.call(withArguments: [error.localizedDescription, NSNull(), NSNull()])
-                    return
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("[LX HTTP] 请求失败: \(urlString.prefix(60)) -> \(error.localizedDescription)")
+                        callback?.call(withArguments: [error.localizedDescription, NSNull(), NSNull()])
+                        return
+                    }
+                    let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                    let httpResp = response as? HTTPURLResponse
+                    let status = httpResp?.statusCode ?? 200
+                    print("[LX HTTP] \(urlString.prefix(60)) -> \(status)")
+                    let resp: [String: Any] = [
+                        "statusCode": status,
+                        "headers": httpResp?.allHeaderFields as? [String: String] ?? [:],
+                        "body": body
+                    ]
+                    callback?.call(withArguments: [NSNull(), resp, body])
                 }
-                let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                let httpResp = response as? HTTPURLResponse
-                let resp: [String: Any] = [
-                    "statusCode": httpResp?.statusCode ?? 200,
-                    "headers": httpResp?.allHeaderFields ?? [:],
-                    "body": body
-                ]
-                callback?.call(withArguments: [NSNull(), resp, body])
             }.resume()
 
             return nil
