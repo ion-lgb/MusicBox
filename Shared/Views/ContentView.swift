@@ -136,40 +136,22 @@ struct ContentView: View {
     private var iOSContent: some View {
         TabView {
             Tab("搜索", systemImage: "magnifyingglass") {
-                NavigationStack {
-                    SearchView()
-                        .toolbarVisibility(.hidden, for: .navigationBar)
-                }
+                NavigationStack { SearchView() }
             }
             Tab("排行榜", systemImage: "chart.bar") {
-                NavigationStack {
-                    LeaderboardView()
-                        .toolbarVisibility(.hidden, for: .navigationBar)
-                }
+                NavigationStack { LeaderboardView() }
             }
             Tab("歌单", systemImage: "square.stack") {
-                NavigationStack {
-                    SongListBrowseView()
-                        .toolbarVisibility(.hidden, for: .navigationBar)
-                }
+                NavigationStack { SongListBrowseView() }
             }
             Tab("我的", systemImage: "music.note.list") {
-                NavigationStack {
-                    PlaylistListView()
-                        .toolbarVisibility(.hidden, for: .navigationBar)
-                }
+                NavigationStack { PlaylistListView() }
             }
             Tab("下载", systemImage: "arrow.down.circle") {
-                NavigationStack {
-                    DownloadView()
-                        .toolbarVisibility(.hidden, for: .navigationBar)
-                }
+                NavigationStack { DownloadView() }
             }
             Tab("设置", systemImage: "gearshape") {
-                NavigationStack {
-                    SettingsView()
-                        .toolbarVisibility(.hidden, for: .navigationBar)
-                }
+                NavigationStack { SettingsView() }
             }
         }
         .tint(.purple)
@@ -177,6 +159,10 @@ struct ContentView: View {
             if let song = playerVM.audioPlayer.currentSong {
                 iOSMiniPlayerContent(song)
             }
+        }
+        .background {
+            Color(.systemBackground)
+                .ignoresSafeArea()
         }
         .overlay(alignment: .top) {
             if let error = playerVM.playError {
