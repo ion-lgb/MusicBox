@@ -134,6 +134,9 @@ struct LeaderboardView: View {
             }
         }
         .navigationTitle("排行榜")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .onAppear { loadBoard() }
     }
 

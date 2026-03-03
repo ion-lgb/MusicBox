@@ -50,7 +50,7 @@ struct SearchView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("搜索")
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         #endif
     }
 

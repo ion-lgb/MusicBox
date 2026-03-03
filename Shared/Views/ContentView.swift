@@ -134,27 +134,30 @@ struct ContentView: View {
     }
 
     private var iOSContent: some View {
-        ZStack(alignment: .bottom) {
-            TabView {
+        TabView {
+            Tab("搜索", systemImage: "magnifyingglass") {
                 NavigationStack { SearchView() }
-                    .tabItem { Label("搜索", systemImage: "magnifyingglass") }
-                NavigationStack { LeaderboardView() }
-                    .tabItem { Label("排行榜", systemImage: "chart.bar") }
-                NavigationStack { SongListBrowseView() }
-                    .tabItem { Label("歌单", systemImage: "square.stack") }
-                NavigationStack { PlaylistListView() }
-                    .tabItem { Label("我的", systemImage: "music.note.list") }
-                NavigationStack { DownloadView() }
-                    .tabItem { Label("下载", systemImage: "arrow.down.circle") }
-                NavigationStack { SettingsView() }
-                    .tabItem { Label("设置", systemImage: "gearshape") }
             }
-            .tint(.purple)
-            .safeAreaPadding(.bottom, playerVM.audioPlayer.currentSong != nil ? 64 : 0)
-
-            if playerVM.audioPlayer.currentSong != nil {
-                iOSMiniPlayer
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            Tab("排行榜", systemImage: "chart.bar") {
+                NavigationStack { LeaderboardView() }
+            }
+            Tab("歌单", systemImage: "square.stack") {
+                NavigationStack { SongListBrowseView() }
+            }
+            Tab("我的", systemImage: "music.note.list") {
+                NavigationStack { PlaylistListView() }
+            }
+            Tab("下载", systemImage: "arrow.down.circle") {
+                NavigationStack { DownloadView() }
+            }
+            Tab("设置", systemImage: "gearshape") {
+                NavigationStack { SettingsView() }
+            }
+        }
+        .tint(.purple)
+        .tabViewBottomAccessory {
+            if let song = playerVM.audioPlayer.currentSong {
+                iOSMiniPlayerContent(song)
             }
         }
         .overlay(alignment: .top) {
@@ -164,46 +167,36 @@ struct ContentView: View {
         }
     }
 
-    private var iOSMiniPlayer: some View {
-        Group {
-            if let song = playerVM.audioPlayer.currentSong {
-                HStack(spacing: 12) {
-                    AlbumCover(platform: song.platform, size: 44, isCircle: false, coverUrl: song.coverUrl)
+    private func iOSMiniPlayerContent(_ song: Song) -> some View {
+        HStack(spacing: 12) {
+            AlbumCover(platform: song.platform, size: 36, isCircle: false, coverUrl: song.coverUrl)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(song.name)
-                            .font(.subheadline.bold())
-                            .lineLimit(1)
-                        Text(song.artist)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-
-                    Spacer()
-
-                    Button { playerVM.togglePlayPause() } label: {
-                        Image(systemName: playerVM.audioPlayer.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.title2)
-                    }
-                    .buttonStyle(.plain)
-
-                    Button { Task { await playerVM.playNext(engine: engine) } } label: {
-                        Image(systemName: "forward.fill")
-                            .font(.title3)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
-                .padding(.horizontal, 8)
-                .contentShape(Rectangle())
-                .onTapGesture { playerVM.showFullPlayer = true }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(song.name)
+                    .font(.caption.bold())
+                    .lineLimit(1)
+                Text(song.artist)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+
+            Spacer()
+
+            Button { playerVM.togglePlayPause() } label: {
+                Image(systemName: playerVM.audioPlayer.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.body)
+            }
+            .buttonStyle(.plain)
+
+            Button { Task { await playerVM.playNext(engine: engine) } } label: {
+                Image(systemName: "forward.fill")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { playerVM.showFullPlayer = true }
     }
 
     @ViewBuilder

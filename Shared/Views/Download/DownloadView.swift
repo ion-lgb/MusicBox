@@ -81,6 +81,9 @@ struct DownloadView: View {
             }
         }
         .navigationTitle("下载")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 }
 

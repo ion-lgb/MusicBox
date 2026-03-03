@@ -46,6 +46,9 @@ struct SongListBrowseView: View {
             }
         }
         .navigationTitle("歌单")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .task { await loadPlaylists() }
     }
 
