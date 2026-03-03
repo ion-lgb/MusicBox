@@ -600,6 +600,66 @@ final class MusicSourceEngine {
         return String(url[range])
     }
 
+    // MARK: - 在线歌单
+
+    func getOnlinePlaylists(platform: MusicPlatform) async throws -> [OnlinePlaylist] {
+        switch platform {
+        case .netease:
+            return try await getOnlinePlaylistsNetease()
+        case .qq:
+            return try await getOnlinePlaylistsQQ()
+        default:
+            return []
+        }
+    }
+
+    private func getOnlinePlaylistsNetease() async throws -> [OnlinePlaylist] {
+        let url = URL(string: "https://music.163.com/api/playlist/list?cat=%E5%85%A8%E9%83%A8&order=hot&limit=30&offset=0")!
+        var req = URLRequest(url: url)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://music.163.com", forHTTPHeaderField: "Referer")
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let playlists = json["playlists"] as? [[String: Any]] else { return [] }
+
+        return playlists.compactMap { p -> OnlinePlaylist? in
+            guard let id = p["id"] as? Int,
+                  let name = p["name"] as? String else { return nil }
+            let coverUrl = (p["coverImgUrl"] as? String) ?? ""
+            let playCount = p["playCount"] as? Int
+            return OnlinePlaylist(
+                id: "wy_\(id)", name: name, coverUrl: coverUrl,
+                detailUrl: "https://music.163.com/playlist?id=\(id)",
+                playCount: playCount
+            )
+        }
+    }
+
+    private func getOnlinePlaylistsQQ() async throws -> [OnlinePlaylist] {
+        let url = URL(string: "https://c.y.qq.com/splcloud/fcgi-bin/fcg_get_diss_by_tag.fcg?categoryId=10000000&sortId=5&sin=0&ein=29&format=json")!
+        var req = URLRequest(url: url)
+        req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://y.qq.com", forHTTPHeaderField: "Referer")
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataObj = json["data"] as? [String: Any],
+              let list = dataObj["list"] as? [[String: Any]] else { return [] }
+
+        return list.compactMap { p -> OnlinePlaylist? in
+            guard let dissid = p["dissid"] as? String,
+                  let name = p["dissname"] as? String else { return nil }
+            let coverUrl = (p["imgurl"] as? String) ?? ""
+            let listennum = p["listennum"] as? Int
+            return OnlinePlaylist(
+                id: "tx_\(dissid)", name: name, coverUrl: coverUrl,
+                detailUrl: "https://y.qq.com/n/ryqq/playlist/\(dissid)",
+                playCount: listennum
+            )
+        }
+    }
+
     // MARK: - JS 上下文
 
     private func loadSavedSources() {

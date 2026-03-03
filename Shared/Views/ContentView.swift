@@ -116,47 +116,110 @@ struct ContentView: View {
 
     #if os(iOS)
     private var iOSLayout: some View {
+        iOSContent
+            .animation(.spring(duration: 0.35), value: playerVM.audioPlayer.currentSong != nil)
+            .modelContainer(for: [Playlist.self, PlaylistItem.self])
+            .fullScreenCover(isPresented: Binding(
+                get: { playerVM.showFullPlayer },
+                set: { playerVM.showFullPlayer = $0 }
+            )) {
+                iOSPlayerDetailView()
+            }
+            .sheet(isPresented: Binding(
+                get: { playerVM.showPlayQueue },
+                set: { playerVM.showPlayQueue = $0 }
+            )) {
+                iOSPlayQueueSheet()
+            }
+    }
+
+    private var iOSContent: some View {
         ZStack(alignment: .bottom) {
             TabView {
                 NavigationStack { SearchView() }
                     .tabItem { Label("搜索", systemImage: "magnifyingglass") }
+                NavigationStack { LeaderboardView() }
+                    .tabItem { Label("排行榜", systemImage: "chart.bar") }
+                NavigationStack { SongListBrowseView() }
+                    .tabItem { Label("歌单", systemImage: "square.stack") }
                 NavigationStack { PlaylistListView() }
-                    .tabItem { Label("歌单", systemImage: "music.note.list") }
+                    .tabItem { Label("我的", systemImage: "music.note.list") }
+                NavigationStack { DownloadView() }
+                    .tabItem { Label("下载", systemImage: "arrow.down.circle") }
                 NavigationStack { SettingsView() }
-                    .tabItem { Label("设置", systemImage: "gearshape.fill") }
+                    .tabItem { Label("设置", systemImage: "gearshape") }
             }
             .tint(.purple)
             .safeAreaPadding(.bottom, playerVM.audioPlayer.currentSong != nil ? 64 : 0)
 
             if playerVM.audioPlayer.currentSong != nil {
-                MiniPlayerView()
+                iOSMiniPlayer
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .overlay(alignment: .top) {
             if let error = playerVM.playError {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                    Text(error)
-                }
-                .font(.caption)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.red.gradient, in: Capsule())
-                .padding(.top, 50)
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .animation(.spring(duration: 0.3), value: playerVM.playError)
+                iOSErrorBanner(error)
             }
         }
-        .animation(.spring(duration: 0.35), value: playerVM.audioPlayer.currentSong != nil)
-        .modelContainer(for: [Playlist.self, PlaylistItem.self])
-        .sheet(isPresented: Binding(
-            get: { playerVM.showFullPlayer },
-            set: { playerVM.showFullPlayer = $0 }
-        )) {
-            FullPlayerView()
+    }
+
+    private var iOSMiniPlayer: some View {
+        Group {
+            if let song = playerVM.audioPlayer.currentSong {
+                HStack(spacing: 12) {
+                    AlbumCover(platform: song.platform, size: 44, isCircle: false, coverUrl: song.coverUrl)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(song.name)
+                            .font(.subheadline.bold())
+                            .lineLimit(1)
+                        Text(song.artist)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Button { playerVM.togglePlayPause() } label: {
+                        Image(systemName: playerVM.audioPlayer.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.title2)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { Task { await playerVM.playNext(engine: engine) } } label: {
+                        Image(systemName: "forward.fill")
+                            .font(.title3)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
+                .padding(.horizontal, 8)
+                .contentShape(Rectangle())
+                .onTapGesture { playerVM.showFullPlayer = true }
+            }
         }
+    }
+
+    @ViewBuilder
+    private func iOSErrorBanner(_ error: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(error)
+        }
+        .font(.caption)
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.red.gradient, in: Capsule())
+        .padding(.top, 50)
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .animation(.spring(duration: 0.3), value: playerVM.playError)
     }
     #endif
 }

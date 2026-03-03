@@ -10,7 +10,9 @@
 		031692393FF666603FEA7026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0644C59B2A1E5BCC3C9E6C6D /* SettingsView.swift */; };
 		0525A3A44220C15A4B6799AC /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6E93B11B748BB735631B17EB /* MediaPlayer.framework */; };
 		0F6D1352DF5B3AF84603E684 /* Playlist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2144ABA818ECD7998B612AD8 /* Playlist.swift */; };
+		134DC20B4557723DEE4FA408 /* iOSPlayerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6914D8E07BF7982BAEBBD1C7 /* iOSPlayerDetailView.swift */; };
 		249EDA24357A8095F66247A9 /* SongListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAF3773EC43BC314D61E1B9 /* SongListView.swift */; };
+		26364B9EE670E8A256AA48E2 /* iOSPlayerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6914D8E07BF7982BAEBBD1C7 /* iOSPlayerDetailView.swift */; };
 		263E3D6A036C72E2C1625AD2 /* MusicSourceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 990A226D19A7B62FE65F3827 /* MusicSourceEngine.swift */; };
 		2DE1D6E4DEC442362BBA4C3A /* LyricParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A482F8641A1E4185FC0799FD /* LyricParser.swift */; };
 		30F65AA3BDF68686783569C6 /* MusicSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477D7D82EAF8F76E99BBA750 /* MusicSource.swift */; };
@@ -40,6 +42,7 @@
 		8F4139DAF566E28185FB7396 /* DownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9FA8CE60A809A36391E00F /* DownloadView.swift */; };
 		904FB6C2D4D3B972D8F338A3 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71BE449EDDB22E665E3C87A /* Extensions.swift */; };
 		9EF947A7A7983C691F5AC5F0 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9BD470FD1C34E44EB755C8D /* PlayerView.swift */; };
+		A47E1C6255BAFDFA5C35B43D /* SongListBrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EFE418EE36EC659D8F01BB6 /* SongListBrowseView.swift */; };
 		A4F1FFADF8F5C7BFF57C5BCA /* DownloadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E39CFD8DC5300E85E20FB6B1 /* DownloadService.swift */; };
 		B156ECC1A52333A014C1B424 /* MusicBoxApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB480D36EA1F05AAF015F00F /* MusicBoxApp.swift */; };
 		B53B47F109C37781D530A509 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9BD470FD1C34E44EB755C8D /* PlayerView.swift */; };
@@ -52,6 +55,7 @@
 		D9B682B4D9F58185C4FF1067 /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AACC570795547B0083FE868B /* LeaderboardView.swift */; };
 		DE4510D9334845DA40F50FCF /* SongListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAF3773EC43BC314D61E1B9 /* SongListView.swift */; };
 		E00D2B98FF45FC4E5C3A8D29 /* SongContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74AC5A19594F406D93A195CB /* SongContextMenu.swift */; };
+		E6184A12B7C04F5258B44A54 /* SongListBrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EFE418EE36EC659D8F01BB6 /* SongListBrowseView.swift */; };
 		F5D6D61B188CC789CA29231D /* JavaScriptCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1231A1160230EDD0F8015721 /* JavaScriptCore.framework */; };
 		F9CE184083999DCD9CD96A4E /* PlaylistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E824983DE6549FD30D3E5717 /* PlaylistView.swift */; };
 		FA1781BE2C70F6D4C1DE7FBB /* MusicSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477D7D82EAF8F76E99BBA750 /* MusicSource.swift */; };
@@ -70,6 +74,8 @@
 		33792A650247964A67B73323 /* PlaylistViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistViewModel.swift; sourceTree = "<group>"; };
 		477D7D82EAF8F76E99BBA750 /* MusicSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicSource.swift; sourceTree = "<group>"; };
 		4831D18D8311F9F2441BC3E4 /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerService.swift; sourceTree = "<group>"; };
+		4EFE418EE36EC659D8F01BB6 /* SongListBrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongListBrowseView.swift; sourceTree = "<group>"; };
+		6914D8E07BF7982BAEBBD1C7 /* iOSPlayerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSPlayerDetailView.swift; sourceTree = "<group>"; };
 		6E93B11B748BB735631B17EB /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
 		6F1204FCF519735D36804D16 /* MusicBox.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MusicBox.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		74AC5A19594F406D93A195CB /* SongContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongContextMenu.swift; sourceTree = "<group>"; };
@@ -173,6 +179,7 @@
 		6F435F2E9D68244A3D1C650D /* SongList */ = {
 			isa = PBXGroup;
 			children = (
+				4EFE418EE36EC659D8F01BB6 /* SongListBrowseView.swift */,
 				2EAF3773EC43BC314D61E1B9 /* SongListView.swift */,
 			);
 			path = SongList;
@@ -181,6 +188,7 @@
 		886C0757A6303E3C1CCFDC03 /* Player */ = {
 			isa = PBXGroup;
 			children = (
+				6914D8E07BF7982BAEBBD1C7 /* iOSPlayerDetailView.swift */,
 				D9BD470FD1C34E44EB755C8D /* PlayerView.swift */,
 			);
 			path = Player;
@@ -368,7 +376,9 @@
 				8EDB2A7F32DF3C14FFD0A664 /* SettingsViewModel.swift in Sources */,
 				FE61F8465D909F45F7FD9998 /* Song.swift in Sources */,
 				5325E08A53EA87BE9AB7E597 /* SongContextMenu.swift in Sources */,
+				E6184A12B7C04F5258B44A54 /* SongListBrowseView.swift in Sources */,
 				249EDA24357A8095F66247A9 /* SongListView.swift in Sources */,
+				134DC20B4557723DEE4FA408 /* iOSPlayerDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -397,7 +407,9 @@
 				4861CCE6E69BEB929AE45DA2 /* SettingsViewModel.swift in Sources */,
 				3359074A8F65E480887580BF /* Song.swift in Sources */,
 				E00D2B98FF45FC4E5C3A8D29 /* SongContextMenu.swift in Sources */,
+				A47E1C6255BAFDFA5C35B43D /* SongListBrowseView.swift in Sources */,
 				DE4510D9334845DA40F50FCF /* SongListView.swift in Sources */,
+				26364B9EE670E8A256AA48E2 /* iOSPlayerDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -555,3 +555,26 @@ struct FullPlayerView: View {
     }
 }
 #endif
+
+// MARK: - iOS 播放队列 Sheet
+
+#if os(iOS)
+struct iOSPlayQueueSheet: View {
+    @Environment(PlayerViewModel.self) private var playerVM
+    @Environment(MusicSourceEngine.self) private var engine
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            PlayQueueView()
+                .navigationTitle("播放队列")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("完成") { dismiss() }
+                    }
+                }
+        }
+    }
+}
+#endif
