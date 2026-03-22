@@ -291,8 +291,11 @@ fn play_song(
     player: State<'_, Mutex<AudioPlayer>>,
 ) -> Result<(), String> {
     let mut p = player.lock().map_err(|e| e.to_string())?;
-    let song = playlist.iter().find(|s| s.path == path).cloned()
-        .ok_or_else(|| "歌曲不在播放列表中".to_string())?;
+    let song = playlist.get(index).cloned()
+        .ok_or_else(|| "播放索引超出范围".to_string())?;
+    if song.path != path {
+        return Err("播放索引与歌曲路径不匹配".to_string());
+    }
     p.playlist = playlist;
     p.current_index = index;
     p.current_song = Some(song.clone());
