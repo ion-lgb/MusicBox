@@ -111,4 +111,4 @@ npm run tauri build
 
 ## 许可证
 
-MIT
+[The Unlicense](LICENSE) — 公共领域，任意使用，无需署名，可商用。
