@@ -13,6 +13,24 @@ export function buildDisplayedSongs(folders, activeFolder) {
   return { allSongs, displayedSongs };
 }
 
+function isSameSongAtIndex(songs, index, song) {
+  return index !== null
+    && index !== undefined
+    && index >= 0
+    && index < songs.length
+    && songs[index]?.path === song?.path;
+}
+
+function findSongIndex(songs, song, preferredIndex = null) {
+  if (!song) return null;
+  if (isSameSongAtIndex(songs, preferredIndex, song)) {
+    return preferredIndex;
+  }
+
+  const index = songs.findIndex(item => item.path === song.path);
+  return index >= 0 ? index : null;
+}
+
 export function createPlaybackSnapshot(displayedSongs, startIndex) {
   const song = displayedSongs[startIndex];
   if (!song) {
@@ -29,12 +47,12 @@ export function createPlaybackSnapshot(displayedSongs, startIndex) {
   return {
     playbackQueue,
     currentSong: song,
-    currentQueueIndex: playbackQueue.findIndex(item => item.path === song.path),
-    ...resolveVisiblePlaybackState(displayedSongs, song),
+    currentQueueIndex: startIndex,
+    ...resolveVisiblePlaybackState(displayedSongs, song, startIndex),
   };
 }
 
-export function resolveVisiblePlaybackState(displayedSongs, currentSong) {
+export function resolveVisiblePlaybackState(displayedSongs, currentSong, preferredIndex = null) {
   if (!currentSong) {
     return {
       currentVisibleIndex: null,
@@ -42,10 +60,10 @@ export function resolveVisiblePlaybackState(displayedSongs, currentSong) {
     };
   }
 
-  const visibleIndex = displayedSongs.findIndex(song => song.path === currentSong.path);
+  const visibleIndex = findSongIndex(displayedSongs, currentSong, preferredIndex);
   return {
-    currentVisibleIndex: visibleIndex >= 0 ? visibleIndex : null,
-    isCurrentSongVisible: visibleIndex >= 0,
+    currentVisibleIndex: visibleIndex,
+    isCurrentSongVisible: visibleIndex !== null,
   };
 }
 
@@ -76,8 +94,8 @@ const state = reactive({
   isDraggingProgress: false,
 });
 
-function syncVisiblePlaybackState(song = state.currentSong) {
-  const { currentVisibleIndex, isCurrentSongVisible } = resolveVisiblePlaybackState(state.displayedSongs, song);
+function syncVisiblePlaybackState(song = state.currentSong, preferredIndex = state.currentVisibleIndex) {
+  const { currentVisibleIndex, isCurrentSongVisible } = resolveVisiblePlaybackState(state.displayedSongs, song, preferredIndex);
   state.currentVisibleIndex = currentVisibleIndex;
   state.isCurrentSongVisible = isCurrentSongVisible;
 }
@@ -89,14 +107,13 @@ function syncDisplayedSongs() {
   syncVisiblePlaybackState();
 }
 
-function syncQueueIndex(song = state.currentSong) {
+function syncQueueIndex(song = state.currentSong, preferredIndex = state.currentQueueIndex) {
   if (!song) {
     state.currentQueueIndex = null;
     return;
   }
 
-  const queueIndex = state.playbackQueue.findIndex(item => item.path === song.path);
-  state.currentQueueIndex = queueIndex >= 0 ? queueIndex : null;
+  state.currentQueueIndex = findSongIndex(state.playbackQueue, song, preferredIndex);
 }
 
 // ---- 文件夹管理 ----
@@ -178,9 +195,12 @@ async function playNext() {
     const invoke = getInvoke();
     const song = await invoke('play_next');
     if (song) {
+      const nextQueueIndex = state.currentQueueIndex === null || state.playbackQueue.length === 0
+        ? null
+        : (state.currentQueueIndex + 1) % state.playbackQueue.length;
       state.currentSong = song;
-      syncQueueIndex(song);
-      syncVisiblePlaybackState(song);
+      syncQueueIndex(song, nextQueueIndex);
+      syncVisiblePlaybackState(song, state.currentQueueIndex);
       state.isPlaying = true;
       startPolling();
     }
@@ -194,9 +214,12 @@ async function playPrev() {
     const invoke = getInvoke();
     const song = await invoke('play_prev');
     if (song) {
+      const prevQueueIndex = state.currentQueueIndex === null || state.playbackQueue.length === 0
+        ? null
+        : (state.currentQueueIndex === 0 ? state.playbackQueue.length - 1 : state.currentQueueIndex - 1);
       state.currentSong = song;
-      syncQueueIndex(song);
-      syncVisiblePlaybackState(song);
+      syncQueueIndex(song, prevQueueIndex);
+      syncVisiblePlaybackState(song, state.currentQueueIndex);
       state.isPlaying = true;
       startPolling();
     }
