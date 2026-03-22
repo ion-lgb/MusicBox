@@ -111,4 +111,4 @@ npm run tauri build
 
 ## 许可证
 
-[MIT License](LICENSE) — 免费商用，二开需保留原作者署名和源地址。
+[AGPL-3.0](LICENSE) — 基于 [SPlayer](https://github.com/imsyy/SPlayer)（AGPL-3.0）和 [LX Music Desktop](https://github.com/lyswhut/lx-music-desktop)（Apache-2.0）的衍生作品。二开需同样开源、附原始源地址和作者信息。
