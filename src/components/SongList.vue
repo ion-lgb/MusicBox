@@ -7,6 +7,12 @@
     <p>点击左侧「添加文件夹」导入你的音乐库</p>
   </div>
   <div v-else class="song-list-container">
+    <div v-if="player.state.currentSong && !player.state.isCurrentSongVisible" class="queue-banner">
+      <strong>当前播放未出现在此筛选结果中。</strong>
+      <span>
+        正在播放《{{ player.state.currentSong.title || player.state.currentSong.file_name }}》，上一首/下一首仍会按开始播放时的队列继续。
+      </span>
+    </div>
     <div class="song-list-header">
       <div class="col-index">#</div>
       <div class="col-title">标题</div>
@@ -23,11 +29,11 @@
         v-for="(song, i) in player.state.displayedSongs"
         :key="song.path"
         class="song-row"
-        :class="{ playing: player.state.currentIndex === i }"
+        :class="{ playing: player.state.currentSong?.path === song.path }"
         @dblclick="player.playSongAt(i)"
       >
         <div class="col-index">
-          <span v-if="player.state.currentIndex === i" class="playing-icon">♫</span>
+          <span v-if="player.state.currentSong?.path === song.path" class="playing-icon">♫</span>
           <span v-else>{{ i + 1 }}</span>
         </div>
         <div class="col-title">{{ song.title || song.file_name }}</div>
@@ -62,6 +68,17 @@ function formatDuration(s) {
 .empty-state p { font-size: 13px; }
 
 .song-list-container { padding: 4px 16px 0; }
+.queue-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(var(--primary), 0.08);
+  color: var(--text-color-secondary);
+  font-size: 12px;
+}
 .song-list-header, .song-row {
   display: grid;
   grid-template-columns: 40px 2fr 1fr 1fr 60px;

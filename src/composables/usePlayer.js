@@ -2,19 +2,73 @@
  * usePlayer — 播放器全局状态 + Tauri invoke 封装
  * 使用 Vue reactivity，所有组件共享同一份状态
  */
-import { reactive, ref } from 'vue';
+import { reactive } from 'vue';
 
-const { invoke } = window.__TAURI__.core;
+export function buildDisplayedSongs(folders, activeFolder) {
+  const allSongs = folders.flatMap(folder => folder.songs);
+  const displayedSongs = activeFolder !== null && folders[activeFolder]
+    ? folders[activeFolder].songs
+    : allSongs;
+
+  return { allSongs, displayedSongs };
+}
+
+export function createPlaybackSnapshot(displayedSongs, startIndex) {
+  const song = displayedSongs[startIndex];
+  if (!song) {
+    return {
+      playbackQueue: [],
+      currentSong: null,
+      currentQueueIndex: null,
+      currentVisibleIndex: null,
+      isCurrentSongVisible: false,
+    };
+  }
+
+  const playbackQueue = displayedSongs.slice();
+  return {
+    playbackQueue,
+    currentSong: song,
+    currentQueueIndex: playbackQueue.findIndex(item => item.path === song.path),
+    ...resolveVisiblePlaybackState(displayedSongs, song),
+  };
+}
+
+export function resolveVisiblePlaybackState(displayedSongs, currentSong) {
+  if (!currentSong) {
+    return {
+      currentVisibleIndex: null,
+      isCurrentSongVisible: false,
+    };
+  }
+
+  const visibleIndex = displayedSongs.findIndex(song => song.path === currentSong.path);
+  return {
+    currentVisibleIndex: visibleIndex >= 0 ? visibleIndex : null,
+    isCurrentSongVisible: visibleIndex >= 0,
+  };
+}
+
+function getInvoke() {
+  const invoke = globalThis.window?.__TAURI__?.core?.invoke;
+  if (!invoke) {
+    throw new Error('Tauri invoke 不可用');
+  }
+  return invoke;
+}
 
 // ---- 全局响应式状态（单例） ----
 const state = reactive({
   folders: [],
   allSongs: [],
   displayedSongs: [],
+  playbackQueue: [],
   activeFolder: null,
   isPlaying: false,
   currentSong: null,
-  currentIndex: null,
+  currentQueueIndex: null,
+  currentVisibleIndex: null,
+  isCurrentSongVisible: false,
   position: 0,
   duration: 0,
   volume: 0.8,
@@ -22,9 +76,33 @@ const state = reactive({
   isDraggingProgress: false,
 });
 
+function syncVisiblePlaybackState(song = state.currentSong) {
+  const { currentVisibleIndex, isCurrentSongVisible } = resolveVisiblePlaybackState(state.displayedSongs, song);
+  state.currentVisibleIndex = currentVisibleIndex;
+  state.isCurrentSongVisible = isCurrentSongVisible;
+}
+
+function syncDisplayedSongs() {
+  const { allSongs, displayedSongs } = buildDisplayedSongs(state.folders, state.activeFolder);
+  state.allSongs = allSongs;
+  state.displayedSongs = displayedSongs;
+  syncVisiblePlaybackState();
+}
+
+function syncQueueIndex(song = state.currentSong) {
+  if (!song) {
+    state.currentQueueIndex = null;
+    return;
+  }
+
+  const queueIndex = state.playbackQueue.findIndex(item => item.path === song.path);
+  state.currentQueueIndex = queueIndex >= 0 ? queueIndex : null;
+}
+
 // ---- 文件夹管理 ----
 async function addFolder() {
   try {
+    const invoke = getInvoke();
     const selected = await invoke('pick_folder');
     if (!selected) return;
     if (state.folders.some(f => f.path === selected)) return;
@@ -36,7 +114,7 @@ async function addFolder() {
       name: parts[parts.length - 1] || selected,
       songs,
     });
-    rebuildAllSongs();
+    syncDisplayedSongs();
   } catch (err) {
     console.error('添加文件夹失败:', err);
   }
@@ -45,37 +123,34 @@ async function addFolder() {
 function removeFolder(index) {
   state.folders.splice(index, 1);
   if (state.activeFolder === index) state.activeFolder = null;
-  else if (state.activeFolder > index) state.activeFolder--;
-  rebuildAllSongs();
+  else if (state.activeFolder !== null && state.activeFolder > index) state.activeFolder--;
+  syncDisplayedSongs();
 }
 
 function selectFolder(index) {
   state.activeFolder = state.activeFolder === index ? null : index;
-  rebuildAllSongs();
-}
-
-function rebuildAllSongs() {
-  if (state.activeFolder !== null && state.folders[state.activeFolder]) {
-    state.displayedSongs = state.folders[state.activeFolder].songs;
-  } else {
-    state.allSongs = state.folders.flatMap(f => f.songs);
-    state.displayedSongs = state.allSongs;
-  }
+  syncDisplayedSongs();
 }
 
 // ---- 播放控制 ----
 async function playSongAt(index) {
-  const song = state.displayedSongs[index];
+  const snapshot = createPlaybackSnapshot(state.displayedSongs, index);
+  const song = snapshot.currentSong;
   if (!song) return;
+
   try {
+    const invoke = getInvoke();
     await invoke('play_song', {
       path: song.path,
-      index,
-      playlist: state.displayedSongs,
+      index: snapshot.currentQueueIndex,
+      playlist: snapshot.playbackQueue,
     });
+    state.playbackQueue = snapshot.playbackQueue;
     state.isPlaying = true;
     state.currentSong = song;
-    state.currentIndex = index;
+    state.currentQueueIndex = snapshot.currentQueueIndex;
+    state.currentVisibleIndex = snapshot.currentVisibleIndex;
+    state.isCurrentSongVisible = snapshot.isCurrentSongVisible;
     startPolling();
   } catch (err) {
     console.error('播放失败:', err);
@@ -85,6 +160,7 @@ async function playSongAt(index) {
 async function togglePlayPause() {
   if (!state.currentSong) return;
   try {
+    const invoke = getInvoke();
     if (state.isPlaying) {
       await invoke('pause_song');
       state.isPlaying = false;
@@ -99,10 +175,12 @@ async function togglePlayPause() {
 
 async function playNext() {
   try {
+    const invoke = getInvoke();
     const song = await invoke('play_next');
     if (song) {
       state.currentSong = song;
-      state.currentIndex = state.displayedSongs.findIndex(s => s.path === song.path);
+      syncQueueIndex(song);
+      syncVisiblePlaybackState(song);
       state.isPlaying = true;
       startPolling();
     }
@@ -113,10 +191,12 @@ async function playNext() {
 
 async function playPrev() {
   try {
+    const invoke = getInvoke();
     const song = await invoke('play_prev');
     if (song) {
       state.currentSong = song;
-      state.currentIndex = state.displayedSongs.findIndex(s => s.path === song.path);
+      syncQueueIndex(song);
+      syncVisiblePlaybackState(song);
       state.isPlaying = true;
       startPolling();
     }
@@ -127,6 +207,7 @@ async function playPrev() {
 
 async function seekTo(pos) {
   try {
+    const invoke = getInvoke();
     await invoke('seek_to', { position: pos });
   } catch (err) {
     console.error('跳转失败:', err);
@@ -136,6 +217,7 @@ async function seekTo(pos) {
 async function setVolume(vol) {
   state.volume = vol;
   try {
+    const invoke = getInvoke();
     await invoke('set_volume', { volume: vol });
   } catch (err) {
     console.error('设置音量失败:', err);
@@ -157,6 +239,7 @@ function stopPolling() {
 
 async function pollStatus() {
   try {
+    const invoke = getInvoke();
     const status = await invoke('get_player_status');
     if (!state.isDraggingProgress) {
       state.position = status.position;
@@ -208,9 +291,12 @@ export function usePlayer() {
     // 让模板能直接访问 reactive 属性
     get folders() { return state.folders; },
     get displayedSongs() { return state.displayedSongs; },
+    get playbackQueue() { return state.playbackQueue; },
     get isPlaying() { return state.isPlaying; },
     get currentSong() { return state.currentSong; },
-    get currentIndex() { return state.currentIndex; },
+    get currentQueueIndex() { return state.currentQueueIndex; },
+    get currentVisibleIndex() { return state.currentVisibleIndex; },
+    get isCurrentSongVisible() { return state.isCurrentSongVisible; },
     get position() { return state.position; },
     get duration() { return state.duration; },
     get volume() { return state.volume; },
