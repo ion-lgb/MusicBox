@@ -1,0 +1,52 @@
+/* ============================================================
+   Ion Music Box — 全局样式 (SPlayer 风格)
+   全本地化：无外部字体/CSS 链接
+   ============================================================ */
+
+:root {
+  /* SPlayer 色彩 */
+  --primary: 51, 94, 234;
+  --primary-hex: rgb(51, 94, 234);
+  --background: #18191c;
+  --surface-container-hex: #242628;
+  --text-color: rgba(255, 255, 255, 0.92);
+  --text-color-secondary: rgba(255, 255, 255, 0.65);
+  --text-color-tertiary: rgba(255, 255, 255, 0.38);
+  /* 布局 */
+  --titlebar-h: 56px;
+  --sidebar-w: 240px;
+  --player-h: 80px;
+  /* 动画 */
+  --bezier: cubic-bezier(0.4, 0, 0.2, 1);
+  /* 字体 — 全本地，使用系统字体栈 */
+  --font: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+
+/* 全局 Reset */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #app {
+  width: 100%; height: 100%; overflow: hidden;
+  font-family: var(--font);
+  background: var(--background);
+  color: var(--text-color);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* 滚动条 — SPlayer 风格 */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--primary), 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(var(--primary), 0.3); }
+
+/* 全局动画 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
