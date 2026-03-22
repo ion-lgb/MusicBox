@@ -9,6 +9,9 @@
         </svg>
         <span>添加文件夹</span>
       </button>
+      <p class="queue-hint">
+        切换文件夹只会改变当前可见歌曲；“上一首/下一首”会继续沿用开始播放时生成的队列。
+      </p>
       <ul class="folder-list">
         <li
           v-for="(folder, i) in player.state.folders"
@@ -42,7 +45,7 @@ const player = usePlayer();
 
 defineEmits(['openImport']);
 
-const props = defineProps({
+defineProps({
   sourceStatus: { type: String, default: '未加载音源' },
   sourceStatusColor: { type: String, default: '' },
 });
@@ -81,7 +84,13 @@ function selectFolder(i) {
   transition: all 0.2s var(--bezier);
 }
 .btn-sidebar:hover { border-color: var(--primary-hex); color: var(--primary-hex); background: rgba(var(--primary), 0.04); }
-
+.queue-hint {
+  margin: 8px 4px 4px;
+  padding: 0 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-color-tertiary);
+}
 .folder-list { list-style: none; margin-top: 6px; }
 .folder-list li {
   display: flex; align-items: center; justify-content: space-between;
