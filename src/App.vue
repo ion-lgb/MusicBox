@@ -71,8 +71,6 @@ async function onScriptLoaded(content) {
     sourceStatus.value = `✓ ${meta.name || '未命名'} (${names})`;
     sourceStatusColor.value = 'var(--primary-hex)';
     searchEnabled.value = true;
-    // 持久化
-    localStorage.setItem('lx_script', content);
   } catch (err) {
     sourceStatus.value = `✗ ${err.message}`;
     sourceStatusColor.value = '#ef4444';
@@ -93,12 +91,9 @@ function handleSearch(keyword) {
   }, 3000);
 }
 
-// 自动加载上次保存的脚本
-onMounted(async () => {
-  const saved = localStorage.getItem('lx_script');
-  if (saved) {
-    await onScriptLoaded(saved);
-  }
+// 启动时清理可能残留的旧版本持久化脚本
+onMounted(() => {
+  localStorage.removeItem('lx_script');
 });
 </script>
 

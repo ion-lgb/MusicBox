@@ -360,17 +360,20 @@ fn play_prev(player: State<'_, Mutex<AudioPlayer>>) -> Result<Option<SongInfo>, 
 }
 
 #[tauri::command]
-fn play_url(
+async fn play_url(
     url: String,
     song_info: SongInfo,
     index: usize,
     playlist: Vec<SongInfo>,
     player: State<'_, Mutex<AudioPlayer>>,
 ) -> Result<(), String> {
-    // Download audio data using reqwest blocking
-    let data = reqwest::blocking::get(&url)
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(|e| format!("创建客户端失败: {}", e))?;
+    let data = client.get(&url).send().await
         .map_err(|e| format!("HTTP download error: {}", e))?
-        .bytes()
+        .bytes().await
         .map_err(|e| format!("Read body error: {}", e))?
         .to_vec();
 
@@ -382,10 +385,18 @@ fn play_url(
 }
 
 #[tauri::command]
-fn fetch_text(url: String) -> Result<String, String> {
-    reqwest::blocking::get(&url)
-        .map_err(|e| format!("请求失败: {}", e))?
-        .text()
+async fn fetch_text(url: String) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("创建客户端失败: {}", e))?;
+    let resp = client.get(&url).send().await
+        .map_err(|e| format!("请求失败: {}", e))?;
+    let len = resp.content_length().unwrap_or(0);
+    if len > 10 * 1024 * 1024 {
+        return Err("脚本文件过大（>10MB）".into());
+    }
+    resp.text().await
         .map_err(|e| format!("读取响应失败: {}", e))
 }
 

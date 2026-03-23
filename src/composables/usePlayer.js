@@ -3,6 +3,7 @@
  * 使用 Vue reactivity，所有组件共享同一份状态
  */
 import { reactive } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 
 export function buildDisplayedSongs(folders, activeFolder) {
   const allSongs = folders.flatMap(folder => folder.songs);
@@ -47,14 +48,6 @@ export function resolveVisiblePlaybackState(displayedSongs, currentSong) {
     currentVisibleIndex: visibleIndex >= 0 ? visibleIndex : null,
     isCurrentSongVisible: visibleIndex >= 0,
   };
-}
-
-function getInvoke() {
-  const invoke = globalThis.window?.__TAURI__?.core?.invoke;
-  if (!invoke) {
-    throw new Error('Tauri invoke 不可用');
-  }
-  return invoke;
 }
 
 // ---- 全局响应式状态（单例） ----
@@ -102,7 +95,6 @@ function syncQueueIndex(song = state.currentSong) {
 // ---- 文件夹管理 ----
 async function addFolder() {
   try {
-    const invoke = getInvoke();
     const selected = await invoke('pick_folder');
     if (!selected) return;
     if (state.folders.some(f => f.path === selected)) return;
@@ -139,7 +131,6 @@ async function playSongAt(index) {
   if (!song) return;
 
   try {
-    const invoke = getInvoke();
     await invoke('play_song', {
       path: song.path,
       index: snapshot.currentQueueIndex,
@@ -160,7 +151,6 @@ async function playSongAt(index) {
 async function togglePlayPause() {
   if (!state.currentSong) return;
   try {
-    const invoke = getInvoke();
     if (state.isPlaying) {
       await invoke('pause_song');
       state.isPlaying = false;
@@ -175,7 +165,6 @@ async function togglePlayPause() {
 
 async function playNext() {
   try {
-    const invoke = getInvoke();
     const song = await invoke('play_next');
     if (song) {
       state.currentSong = song;
@@ -191,7 +180,6 @@ async function playNext() {
 
 async function playPrev() {
   try {
-    const invoke = getInvoke();
     const song = await invoke('play_prev');
     if (song) {
       state.currentSong = song;
@@ -207,7 +195,6 @@ async function playPrev() {
 
 async function seekTo(pos) {
   try {
-    const invoke = getInvoke();
     await invoke('seek_to', { position: pos });
   } catch (err) {
     console.error('跳转失败:', err);
@@ -217,7 +204,6 @@ async function seekTo(pos) {
 async function setVolume(vol) {
   state.volume = vol;
   try {
-    const invoke = getInvoke();
     await invoke('set_volume', { volume: vol });
   } catch (err) {
     console.error('设置音量失败:', err);
@@ -239,7 +225,6 @@ function stopPolling() {
 
 async function pollStatus() {
   try {
-    const invoke = getInvoke();
     const status = await invoke('get_player_status');
     if (!state.isDraggingProgress) {
       state.position = status.position;

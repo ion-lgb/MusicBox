@@ -37,7 +37,7 @@
 
 <script setup>
 import { ref } from 'vue';
-const { getCurrentWindow } = window.__TAURI__.window;
+import { getCurrentWindow } from '@tauri-apps/api/window';
 const appWindow = getCurrentWindow();
 
 const searchQuery = ref('');

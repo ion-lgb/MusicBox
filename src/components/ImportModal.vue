@@ -26,7 +26,7 @@
 import { ref } from 'vue';
 import { NModal, NInput, NButton, NDivider, useMessage } from 'naive-ui';
 
-const { invoke } = window.__TAURI__.core;
+import { invoke } from '@tauri-apps/api/core';
 
 const show = defineModel('show', { default: false });
 const emit = defineEmits(['loaded']);

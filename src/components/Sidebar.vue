@@ -68,6 +68,7 @@ function selectFolder(i) {
   border-right: 1px solid rgba(var(--primary), 0.06);
   display: flex; flex-direction: column;
   overflow-y: auto;
+  padding-bottom: var(--player-h);
 }
 .sidebar-section { padding: 12px 10px; }
 .sidebar-source { margin-top: auto; border-top: 1px solid rgba(var(--primary), 0.06); }

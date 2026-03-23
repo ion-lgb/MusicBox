@@ -2,8 +2,13 @@
  * LX Music 自定义源脚本兼容层
  * 模拟 globalThis.lx API，让 LX Music 自定义源脚本能在 Tauri WebView 中运行
  *
+ * 安全模型：使用 Proxy + with(this) 白名单沙箱，拦截所有变量查找，
+ *          仅允许脚本访问显式白名单中的安全 API。
+ *
  * 参考: https://lyswhut.github.io/lx-music-doc/desktop/custom-source
  */
+
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 
 // ============================================================
 // 常量
@@ -12,6 +17,132 @@ const EVENT_NAMES = {
   request: 'request',
   inited: 'inited',
 };
+
+// ============================================================
+// 安全的 console 代理（仅允许日志输出，不暴露真实 console 对象链）
+// ============================================================
+const _safeConsole = Object.freeze({
+  log: (...args) => console.log('[LxScript]', ...args),
+  warn: (...args) => console.warn('[LxScript]', ...args),
+  error: (...args) => console.error('[LxScript]', ...args),
+  info: (...args) => console.info('[LxScript]', ...args),
+  debug: (...args) => console.debug('[LxScript]', ...args),
+});
+
+// ============================================================
+// 安全的 setTimeout/setInterval 包装（限制最大并发定时器数量）
+// ============================================================
+const _MAX_TIMERS = 64;
+const _activeTimers = new Set();
+
+function _safeSetTimeout(fn, delay, ...args) {
+  if (_activeTimers.size >= _MAX_TIMERS) {
+    console.warn('[LxSandbox] 定时器数量已达上限，忽略新的 setTimeout 调用');
+    return -1;
+  }
+  const id = setTimeout((...a) => {
+    _activeTimers.delete(id);
+    if (typeof fn === 'function') fn(...a);
+  }, delay, ...args);
+  _activeTimers.add(id);
+  return id;
+}
+
+function _safeClearTimeout(id) {
+  clearTimeout(id);
+  _activeTimers.delete(id);
+}
+
+function _safeSetInterval(fn, delay, ...args) {
+  if (_activeTimers.size >= _MAX_TIMERS) {
+    console.warn('[LxSandbox] 定时器数量已达上限，忽略新的 setInterval 调用');
+    return -1;
+  }
+  const id = setInterval(fn, delay, ...args);
+  _activeTimers.add(id);
+  return id;
+}
+
+function _safeClearInterval(id) {
+  clearInterval(id);
+  _activeTimers.delete(id);
+}
+
+// ============================================================
+// 白名单：沙箱内脚本可访问的全局 API
+// ============================================================
+function _buildWhitelist(lx, sandboxGlobal) {
+  return new Map([
+    // -- LX 核心 API --
+    ['lx', lx],
+    // -- 日志 --
+    ['console', _safeConsole],
+    // -- 定时器 --
+    ['setTimeout', _safeSetTimeout],
+    ['clearTimeout', _safeClearTimeout],
+    ['setInterval', _safeSetInterval],
+    ['clearInterval', _safeClearInterval],
+    // -- 基本类型 & 工具 --
+    ['Promise', Promise],
+    ['JSON', JSON],
+    ['Math', Math],
+    ['Date', Date],
+    ['RegExp', RegExp],
+    ['Error', Error],
+    ['TypeError', TypeError],
+    ['RangeError', RangeError],
+    ['SyntaxError', SyntaxError],
+    ['Map', Map],
+    ['Set', Set],
+    ['WeakMap', WeakMap],
+    ['WeakSet', WeakSet],
+    ['Symbol', Symbol],
+    ['Object', Object],
+    ['Array', Array],
+    ['String', String],
+    ['Number', Number],
+    ['Boolean', Boolean],
+    // -- 数值工具 --
+    ['parseInt', parseInt],
+    ['parseFloat', parseFloat],
+    ['isNaN', isNaN],
+    ['isFinite', isFinite],
+    ['NaN', NaN],
+    ['Infinity', Infinity],
+    ['undefined', undefined],
+    // -- URI 编码 --
+    ['encodeURIComponent', encodeURIComponent],
+    ['decodeURIComponent', decodeURIComponent],
+    ['encodeURI', encodeURI],
+    ['decodeURI', decodeURI],
+    // -- 二进制 --
+    ['Uint8Array', Uint8Array],
+    ['Int8Array', Int8Array],
+    ['Uint16Array', Uint16Array],
+    ['Int16Array', Int16Array],
+    ['Uint32Array', Uint32Array],
+    ['Int32Array', Int32Array],
+    ['Float32Array', Float32Array],
+    ['Float64Array', Float64Array],
+    ['ArrayBuffer', ArrayBuffer],
+    ['DataView', DataView],
+    ['TextEncoder', TextEncoder],
+    ['TextDecoder', TextDecoder],
+    // -- URL --
+    ['URL', URL],
+    ['URLSearchParams', URLSearchParams],
+    // -- 加密（受限） --
+    ['crypto', Object.freeze({ getRandomValues: (arr) => globalThis.crypto.getRandomValues(arr) })],
+    // -- 压缩/解压 --
+    ['CompressionStream', CompressionStream],
+    ['DecompressionStream', DecompressionStream],
+    // -- 全局自引用（指向沙箱而非真实 window） --
+    ['globalThis', sandboxGlobal],
+    ['window', sandboxGlobal],
+    ['self', sandboxGlobal],
+    ['global', sandboxGlobal],
+  ]);
+}
 
 // ============================================================
 // LX Sandbox 类
@@ -74,22 +205,11 @@ class LxSandbox {
         }
       };
 
-      // lx.request — HTTP 请求（使用 Tauri HTTP 插件 bypass CORS）
+      // lx.request — HTTP 请求（通过 Tauri HTTP 插件，绕过 CORS）
       const request = (url, options, callback) => {
         const method = (options?.method || 'GET').toUpperCase();
         const headers = options?.headers || {};
         const body = options?.body || undefined;
-
-        // 使用 Tauri 的 fetch API（绕过 CORS）
-        let fetchFn;
-        try {
-          // 优先使用 Tauri HTTP 插件的 fetch
-          fetchFn = window.__TAURI_PLUGIN_HTTP__
-            ? window.__TAURI_PLUGIN_HTTP__.fetch
-            : window.fetch.bind(window);
-        } catch {
-          fetchFn = window.fetch.bind(window);
-        }
 
         const fetchOpts = { method, headers };
         if (body && method !== 'GET') {
@@ -107,7 +227,8 @@ class LxSandbox {
           setTimeout(() => controller.abort(), options.timeout * 1000);
         }
 
-        fetchFn(url, fetchOpts)
+        // 使用 ES module 导入的 Tauri fetch（不再依赖 window.__TAURI__）
+        tauriFetch(url, fetchOpts)
           .then(async (resp) => {
             const contentType = resp.headers.get('content-type') || '';
             let responseBody;
@@ -141,7 +262,6 @@ class LxSandbox {
         },
         crypto: {
           md5: (str) => {
-            // 简单的 MD5 不在 Web Crypto — 用纯 JS 实现
             return _md5(str);
           },
           aesEncrypt: (buffer, mode, key, iv) => {
@@ -150,7 +270,7 @@ class LxSandbox {
           },
           randomBytes: (size) => {
             const arr = new Uint8Array(size);
-            crypto.getRandomValues(arr);
+            globalThis.crypto.getRandomValues(arr);
             return arr;
           },
           rsaEncrypt: (buffer, key) => {
@@ -216,13 +336,54 @@ class LxSandbox {
         utils,
       };
 
-      // ---- 在沙盒环境中执行脚本 ----
-      // 注意：不能预先 destructure EVENT_NAMES 等，因为脚本自身也会做同样操作
-      // 用 IIFE 包裹，将 lx 注入到脚本的 globalThis
+      // ---- 使用 Proxy + with(this) 沙箱执行脚本 ----
+      // Proxy.has 返回 true 使所有变量查找经过沙箱
+      // Proxy.get 仅返回白名单中的值，阻断 window/document/Function/eval/__TAURI__ 等逃逸路径
       try {
-        const sandbox = { lx };
-        const fn = new Function('globalThis', scriptContent);
-        fn(sandbox);
+        const whitelist = _buildWhitelist(lx, null); // 先创建，sandboxGlobal 稍后回填
+        const scriptVars = Object.create(null); // 脚本中赋值的变量存储在这里
+
+        const sandboxGlobal = new Proxy(Object.create(null), {
+          has: () => true,
+          get: (_target, prop) => {
+            // 脚本自定义变量优先
+            if (prop in scriptVars) return scriptVars[prop];
+            // 白名单
+            if (whitelist.has(prop)) return whitelist.get(prop);
+            // 拦截危险全局
+            if (prop === 'Function' || prop === 'eval'
+                || prop === 'document' || prop === 'top' || prop === 'parent' || prop === 'frames'
+                || prop === 'location' || prop === 'navigator' || prop === 'history'
+                || prop === '__TAURI__' || prop === '__TAURI_PLUGIN_HTTP__'
+                || prop === '__TAURI_INTERNALS__'
+                || prop === 'fetch' || prop === 'XMLHttpRequest'
+                || prop === 'importScripts' || prop === 'Worker' || prop === 'SharedWorker'
+                || prop === 'ServiceWorker') {
+              return undefined;
+            }
+            return undefined;
+          },
+          set: (_target, prop, value) => {
+            scriptVars[prop] = value;
+            return true;
+          },
+          deleteProperty: (_target, prop) => {
+            delete scriptVars[prop];
+            return true;
+          },
+        });
+
+        // 回填 sandboxGlobal 自引用
+        whitelist.set('globalThis', sandboxGlobal);
+        whitelist.set('window', sandboxGlobal);
+        whitelist.set('self', sandboxGlobal);
+        whitelist.set('global', sandboxGlobal);
+
+        // with(this) 使得脚本中所有变量查找都经过 Proxy
+        // new Function 默认 sloppy mode，with 可用
+        const wrappedScript = `with(this){${scriptContent}\n}`;
+        const fn = new Function(wrappedScript);
+        fn.call(sandboxGlobal);
       } catch (err) {
         reject(new Error(`脚本执行错误: ${err.message}`));
       }
