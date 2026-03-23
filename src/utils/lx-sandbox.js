@@ -16,6 +16,7 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 const EVENT_NAMES = {
   request: 'request',
   inited: 'inited',
+  updateAlert: 'updateAlert',
 };
 
 // ============================================================
@@ -202,6 +203,9 @@ class LxSandbox {
           self._ready = true;
           console.log('[LxSandbox] 脚本初始化完成:', self._scriptMeta?.name || '未命名', data.sources);
           resolve(self._sources);
+        } else if (eventName === EVENT_NAMES.updateAlert) {
+          console.log('[LxSandbox] 脚本更新提醒:', data?.log || '');
+          if (data?.updateUrl) console.log('[LxSandbox] 更新地址:', data.updateUrl);
         }
       };
 
@@ -213,12 +217,25 @@ class LxSandbox {
 
         const fetchOpts = { method, headers };
         if (body && method !== 'GET') {
-          fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
+          if (typeof body === 'string') {
+            fetchOpts.body = body;
+          } else if (body instanceof Uint8Array || body instanceof ArrayBuffer) {
+            fetchOpts.body = body;
+          } else {
+            fetchOpts.body = JSON.stringify(body);
+          }
         }
         if (options?.form) {
           const params = new URLSearchParams(options.form);
           fetchOpts.body = params.toString();
-          fetchOpts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+          fetchOpts.headers['Content-Type'] = fetchOpts.headers['Content-Type'] || 'application/x-www-form-urlencoded';
+        }
+        if (options?.formData) {
+          const fd = new FormData();
+          for (const [k, v] of Object.entries(options.formData)) {
+            fd.append(k, v);
+          }
+          fetchOpts.body = fd;
         }
 
         const controller = new AbortController();
@@ -252,30 +269,103 @@ class LxSandbox {
         buffer: {
           from: (data, encoding) => {
             if (typeof data === 'string') {
+              const enc = (encoding || 'utf-8').toLowerCase();
+              if (enc === 'base64') {
+                const bin = atob(data);
+                const arr = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                return arr;
+              }
+              if (enc === 'hex') {
+                const arr = new Uint8Array(data.length / 2);
+                for (let i = 0; i < data.length; i += 2) arr[i / 2] = parseInt(data.substr(i, 2), 16);
+                return arr;
+              }
+              if (enc === 'binary' || enc === 'latin1') {
+                const arr = new Uint8Array(data.length);
+                for (let i = 0; i < data.length; i++) arr[i] = data.charCodeAt(i);
+                return arr;
+              }
               return new TextEncoder().encode(data);
             }
+            if (Array.isArray(data)) return new Uint8Array(data);
             return new Uint8Array(data);
           },
           bufToString: (buffer, encoding) => {
-            return new TextDecoder(encoding || 'utf-8').decode(buffer);
+            const enc = (encoding || 'utf-8').toLowerCase();
+            const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+            if (enc === 'base64') {
+              let bin = '';
+              for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
+              return btoa(bin);
+            }
+            if (enc === 'hex') {
+              return Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+            if (enc === 'binary' || enc === 'latin1') {
+              let s = '';
+              for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+              return s;
+            }
+            return new TextDecoder(enc).decode(u8);
           },
         },
         crypto: {
           md5: (str) => {
             return _md5(str);
           },
-          aesEncrypt: (buffer, mode, key, iv) => {
-            console.warn('[LxSandbox] aesEncrypt 未完整实现');
-            return buffer;
+          aesEncrypt: async (buffer, mode, key, iv) => {
+            try {
+              const u8buf = buffer instanceof Uint8Array ? buffer : new TextEncoder().encode(String(buffer));
+              const u8key = key instanceof Uint8Array ? key : new TextEncoder().encode(String(key));
+              const u8iv = iv instanceof Uint8Array ? iv : new TextEncoder().encode(String(iv));
+              // 支持 aes-128-cbc 等常见模式
+              const modeLower = (mode || 'aes-128-cbc').toLowerCase();
+              let algo;
+              if (modeLower.includes('ecb')) {
+                // Web Crypto 不原生支持 ECB，用 CBC 模拟（单块无 IV）
+                // 简化处理：对 ECB 做 PKCS7 分块手动处理
+                console.warn('[LxSandbox] AES ECB 模式使用简化实现');
+                algo = { name: 'AES-CBC', iv: new Uint8Array(16) };
+              } else {
+                algo = { name: 'AES-CBC', iv: u8iv };
+              }
+              const cryptoKey = await globalThis.crypto.subtle.importKey('raw', u8key, { name: 'AES-CBC' }, false, ['encrypt']);
+              const result = await globalThis.crypto.subtle.encrypt(algo, cryptoKey, u8buf);
+              return new Uint8Array(result);
+            } catch (e) {
+              console.error('[LxSandbox] aesEncrypt 错误:', e);
+              return buffer;
+            }
           },
           randomBytes: (size) => {
             const arr = new Uint8Array(size);
             globalThis.crypto.getRandomValues(arr);
             return arr;
           },
-          rsaEncrypt: (buffer, key) => {
-            console.warn('[LxSandbox] rsaEncrypt 未完整实现');
-            return buffer;
+          rsaEncrypt: async (buffer, key) => {
+            try {
+              const u8buf = buffer instanceof Uint8Array ? buffer : new TextEncoder().encode(String(buffer));
+              // 解析 PEM 公钥
+              let pemKey = String(key);
+              const pemContents = pemKey
+                .replace(/-----BEGIN.*?-----/g, '')
+                .replace(/-----END.*?-----/g, '')
+                .replace(/\s/g, '');
+              const binaryKey = atob(pemContents);
+              const keyArr = new Uint8Array(binaryKey.length);
+              for (let i = 0; i < binaryKey.length; i++) keyArr[i] = binaryKey.charCodeAt(i);
+              const cryptoKey = await globalThis.crypto.subtle.importKey(
+                'spki', keyArr.buffer,
+                { name: 'RSA-OAEP', hash: 'SHA-1' },
+                false, ['encrypt']
+              );
+              const result = await globalThis.crypto.subtle.encrypt({ name: 'RSA-OAEP' }, cryptoKey, u8buf);
+              return new Uint8Array(result);
+            } catch (e) {
+              console.error('[LxSandbox] rsaEncrypt 错误:', e);
+              return buffer;
+            }
           },
         },
         zlib: {
@@ -324,11 +414,14 @@ class LxSandbox {
         },
       };
 
-      // 构建 lx 对象
+      // 构建 lx 对象 — 完全按官方文档
       const lx = {
         version: '2.7.0',
         env: 'desktop',
-        currentScriptInfo: self._scriptMeta || {},
+        currentScriptInfo: {
+          ...(self._scriptMeta || {}),
+          rawScript: scriptContent,
+        },
         EVENT_NAMES,
         on,
         send,
@@ -411,6 +504,23 @@ class LxSandbox {
       source,
       action: 'musicUrl',
       info: { type: quality, musicInfo },
+    });
+  }
+
+  /**
+   * 搜索歌曲
+   * @param {string} source - 音源 key (如 kw, kg, tx, wy, mg)
+   * @param {string} keyword - 搜索关键词
+   * @param {number} page - 页码 (从 1 开始)
+   * @returns {Promise<{list: Array, limit: number, total: number, source: string}>}
+   */
+  async search(source, keyword, page = 1) {
+    const handler = this._handlers[EVENT_NAMES.request];
+    if (!handler) throw new Error('脚本未注册 request 事件处理');
+    return handler({
+      source,
+      action: 'musicSearch',
+      info: { keyword, page },
     });
   }
 

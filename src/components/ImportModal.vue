@@ -42,7 +42,7 @@ async function handleUrl() {
   try {
     // 通过 Rust 端下载，绕过 CORS
     const content = await invoke('fetch_text', { url });
-    emit('loaded', content);
+    emit('loaded', content, url);
     show.value = false;
     message.success('脚本下载成功');
   } catch (err) {

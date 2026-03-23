@@ -8,17 +8,23 @@
       </svg>
       <span class="titlebar-title">Ion Music Box</span>
     </div>
-    <!-- SPlayer 搜索栏 -->
+    <!-- 搜索栏 -->
     <div id="titlebar-search">
+      <select
+        v-model="currentSource"
+        class="source-select"
+        title="搜索源"
+      >
+        <option v-for="(src, key) in sources" :key="key" :value="key">{{ src.name }}</option>
+      </select>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input
         v-model="searchQuery"
         type="text"
-        :placeholder="searchPlaceholder"
-        :disabled="!searchEnabled"
-        @keydown.enter="$emit('search', searchQuery)"
+        placeholder="搜索在线音乐..."
+        @keydown.enter="$emit('search', searchQuery, currentSource)"
       />
     </div>
     <div id="titlebar-controls">
@@ -38,11 +44,13 @@
 <script setup>
 import { ref } from 'vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { SOURCES } from '../utils/musicSdk.js';
+
 const appWindow = getCurrentWindow();
 
 const searchQuery = ref('');
-const searchEnabled = defineModel('searchEnabled', { default: false });
-const searchPlaceholder = defineModel('searchPlaceholder', { default: '搜索在线音乐...' });
+const currentSource = ref('kw');
+const sources = SOURCES;
 
 defineEmits(['search']);
 
@@ -87,7 +95,18 @@ const close = () => appWindow.close();
   width: 180px; user-select: text;
 }
 #titlebar-search input::placeholder { color: var(--text-color-tertiary); }
-#titlebar-search input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.source-select {
+  appearance: none;
+  border: none; outline: none; background: rgba(var(--primary), 0.1);
+  color: var(--primary-hex); font-family: var(--font); font-size: 11px;
+  font-weight: 600; padding: 3px 8px; border-radius: 6px;
+  cursor: pointer; transition: all 0.2s var(--bezier);
+}
+.source-select:hover { background: rgba(var(--primary), 0.18); }
+.source-select option {
+  background: var(--surface-container-hex); color: var(--text-color);
+}
 
 #titlebar-controls { display: flex; gap: 2px; margin-left: 8px; }
 .titlebar-btn {

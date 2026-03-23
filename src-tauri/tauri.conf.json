@@ -18,7 +18,9 @@
         "height": 680,
         "minWidth": 800,
         "minHeight": 500,
-        "decorations": false
+        "decorations": false,
+        "visible": false,
+        "backgroundColor": [24, 24, 28, 255]
       }
     ],
     "security": {

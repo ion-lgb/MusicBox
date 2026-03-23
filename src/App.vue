@@ -3,7 +3,6 @@
     <NMessageProvider>
       <div id="app-root">
         <Titlebar
-          v-model:searchEnabled="searchEnabled"
           @search="handleSearch"
         />
         <div id="app-layout">
@@ -13,7 +12,13 @@
             @openImport="showImportModal = true"
           />
           <main id="content">
-            <SongList />
+            <SongList
+              :searchResults="searchResults"
+              :isSearchMode="isSearchMode"
+              :searchLoading="searchLoading"
+              :playHandler="playSearchResult"
+              :exitHandler="exitSearch"
+            />
           </main>
         </div>
         <PlayerBar />
@@ -33,6 +38,12 @@ import SongList from './components/SongList.vue';
 import PlayerBar from './components/PlayerBar.vue';
 import ImportModal from './components/ImportModal.vue';
 import { LxSandbox } from './utils/lx-sandbox.js';
+import { searchMusic } from './utils/musicSdk.js';
+import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { usePlayer } from './composables/usePlayer.js';
+
+const player = usePlayer();
 
 // SPlayer 风格主题覆盖
 const themeOverrides = {
@@ -54,13 +65,15 @@ const themeOverrides = {
 
 // ---- 音源状态 ----
 const showImportModal = ref(false);
-const searchEnabled = ref(false);
 const sourceStatus = ref('未加载音源');
 const sourceStatusColor = ref('');
 let lxSandbox = null;
 let lxSources = null;
+const searchResults = ref([]);
+const isSearchMode = ref(false);
+const searchLoading = ref(false);
 
-async function onScriptLoaded(content) {
+async function onScriptLoaded(content, scriptUrl) {
   sourceStatus.value = '加载中...';
   sourceStatusColor.value = '';
   try {
@@ -70,7 +83,8 @@ async function onScriptLoaded(content) {
     const names = Object.keys(lxSources).map(k => lxSources[k].name || k).join(', ');
     sourceStatus.value = `✓ ${meta.name || '未命名'} (${names})`;
     sourceStatusColor.value = 'var(--primary-hex)';
-    searchEnabled.value = true;
+    // 持久化脚本 URL，下次启动/HMR 自动重载
+    if (scriptUrl) localStorage.setItem('lx_script_url', scriptUrl);
   } catch (err) {
     sourceStatus.value = `✗ ${err.message}`;
     sourceStatusColor.value = '#ef4444';
@@ -79,21 +93,89 @@ async function onScriptLoaded(content) {
   }
 }
 
-function handleSearch(keyword) {
-  if (!keyword || !lxSandbox || !lxSources) return;
-  console.log('[LX] 搜索:', keyword);
-  sourceStatus.value = '搜索功能需要搜索 API 支持';
-  setTimeout(() => {
-    if (lxSandbox?.ready) {
-      const names = Object.keys(lxSources).map(k => lxSources[k].name || k).join(', ');
-      sourceStatus.value = `✓ ${lxSandbox.meta?.name || '未命名'} (${names})`;
-    }
-  }, 3000);
+async function handleSearch(keyword, source = 'kw') {
+  if (!keyword) return;
+  searchLoading.value = true;
+  isSearchMode.value = true;
+  searchResults.value = [];
+  try {
+    const result = await searchMusic(keyword, 1, source);
+    searchResults.value = result?.list || [];
+    console.log('[Search] 搜索结果:', searchResults.value.length, '首');
+  } catch (err) {
+    console.error('[Search] 搜索失败:', err);
+    searchResults.value = [];
+  } finally {
+    searchLoading.value = false;
+  }
 }
 
-// 启动时清理可能残留的旧版本持久化脚本
-onMounted(() => {
-  localStorage.removeItem('lx_script');
+function exitSearch() {
+  isSearchMode.value = false;
+  searchResults.value = [];
+}
+
+async function playSearchResult(song, index, playlist) {
+  const source = song.source || 'kw';
+  if (!lxSandbox) {
+    console.error('[Play] 请先导入音源脚本');
+    sourceStatus.value = '✗ 请先导入音源脚本';
+    sourceStatusColor.value = '#ef4444';
+    return;
+  }
+  try {
+    const url = await lxSandbox.getMusicUrl(source, song, '320k');
+    if (!url) throw new Error('获取播放 URL 失败');
+    const songInfo = {
+      path: url,
+      file_name: `${song.name || ''} - ${song.singer || ''}.mp3`,
+      title: song.name || '',
+      artist: song.singer || '',
+      album: song.albumName || song.album || '',
+      duration: song.interval || 0,
+    };
+    const playlistInfo = playlist.map(s => ({
+      path: `lx://${s.source || source}/${s.songmid || s.hash || s.name}`,
+      file_name: `${s.name || ''} - ${s.singer || ''}.mp3`,
+      title: s.name || '',
+      artist: s.singer || '',
+      album: s.albumName || s.album || '',
+      duration: s.interval || 0,
+    }));
+    playlistInfo[index] = songInfo;
+    await invoke('play_url', {
+      url,
+      songInfo,
+      index,
+      playlist: playlistInfo,
+    });
+    // 更新 usePlayer 状态，让 PlayerBar 显示正在播放
+    player.state.currentSong = songInfo;
+    player.state.isPlaying = true;
+    player.state.playbackQueue = playlistInfo;
+    player.state.currentQueueIndex = index;
+    player.startPolling();
+  } catch (err) {
+    console.error('[Play] FAIL:', err?.message || err);
+  }
+}
+
+// 启动时自动重载上次导入的脚本
+onMounted(async () => {
+  const savedUrl = localStorage.getItem('lx_script_url');
+  if (savedUrl) {
+    try {
+      const content = await invoke('fetch_text', { url: savedUrl });
+      await onScriptLoaded(content, savedUrl);
+      console.log('[LX] 自动重载脚本成功:', savedUrl);
+    } catch (err) {
+      console.warn('[LX] 自动重载脚本失败:', err);
+      sourceStatus.value = '✗ 自动重载失败，请重新导入';
+      sourceStatusColor.value = '#ef4444';
+    }
+  }
+  // Vue 渲染完成，显示窗口（避免白屏闪烁）
+  getCurrentWindow().show();
 });
 </script>
 

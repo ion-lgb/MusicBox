@@ -142,22 +142,25 @@ fn spawn_audio_thread() -> mpsc::Sender<AudioCommand> {
                     }
                 }
                 Ok(AudioCommand::PlayData(data)) => {
+                    println!("[Audio] PlayData received: {} bytes", data.len());
                     // Stop old sink
                     if let Some(old) = sink.take() {
                         old.stop();
                     }
                     match Decoder::new(Cursor::new(data)) {
                         Ok(source) => {
+                            println!("[Audio] Decode OK, creating sink...");
                             match Sink::try_new(&stream_handle) {
                                 Ok(new_sink) => {
                                     new_sink.set_volume(volume);
                                     new_sink.append(source);
                                     sink = Some(new_sink);
+                                    println!("[Audio] Playing! volume={}", volume);
                                 }
-                                Err(e) => eprintln!("Sink creation error: {}", e),
+                                Err(e) => eprintln!("[Audio] Sink creation error: {}", e),
                             }
                         }
-                        Err(e) => eprintln!("Decode error (URL): {}", e),
+                        Err(e) => eprintln!("[Audio] Decode error: {}", e),
                     }
                 }
                 Ok(AudioCommand::Pause) => {
