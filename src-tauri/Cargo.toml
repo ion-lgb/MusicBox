@@ -28,4 +28,5 @@ lofty = "0.21"
 rodio = { path = "rodio-patched", features = ["symphonia-all"] }
 tauri-plugin-http = "2.5.7"
 reqwest = "0.13.2"
+base64 = "0.22"
 

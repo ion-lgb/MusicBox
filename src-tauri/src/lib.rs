@@ -10,6 +10,7 @@ use std::sync::Mutex;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
+use base64::Engine as _;
 
 // ============================================================
 // Data Types
@@ -34,6 +35,12 @@ pub struct PlayerStatus {
     pub position: f64,
     pub duration: f64,
     pub volume: f32,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct SongMeta {
+    pub cover: String,   // base64 data URI or empty
+    pub lyrics: String,  // embedded LRC/plain lyrics or empty
 }
 
 // ============================================================
@@ -263,6 +270,37 @@ fn parse_song(path: &Path) -> Option<SongInfo> {
 }
 
 #[tauri::command]
+fn get_song_meta(path: String) -> Result<SongMeta, String> {
+    let p = Path::new(&path);
+    if !p.is_file() { return Err("文件不存在".into()); }
+    let tagged_file = Probe::open(p)
+        .map_err(|e| e.to_string())?
+        .read()
+        .map_err(|e| e.to_string())?;
+    let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag());
+    // 封面
+    let cover = tag.and_then(|t| {
+        t.pictures().first().map(|pic| {
+            let mime = match pic.mime_type() {
+                Some(lofty::picture::MimeType::Png) => "image/png",
+                Some(lofty::picture::MimeType::Bmp) => "image/bmp",
+                Some(lofty::picture::MimeType::Gif) => "image/gif",
+                Some(lofty::picture::MimeType::Tiff) => "image/tiff",
+                _ => "image/jpeg",
+            };
+            let b64 = base64::engine::general_purpose::STANDARD.encode(pic.data());
+            format!("data:{};base64,{}", mime, b64)
+        })
+    }).unwrap_or_default();
+    // 歌词
+    let lyrics = tag.and_then(|t| {
+        use lofty::tag::ItemKey;
+        t.get_string(&ItemKey::Lyrics).map(|s| s.to_string())
+    }).unwrap_or_default();
+    Ok(SongMeta { cover, lyrics })
+}
+
+#[tauri::command]
 fn pick_folder(app: tauri::AppHandle) -> Option<String> {
     app.dialog().file().set_title("选择音乐文件夹").blocking_pick_folder().map(|f| f.to_string())
 }
@@ -438,6 +476,7 @@ pub fn run() {
             play_prev,
             play_url,
             fetch_text,
+            get_song_meta,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

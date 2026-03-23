@@ -146,9 +146,27 @@ async function playSongAt(index) {
     state.currentQueueIndex = snapshot.currentQueueIndex;
     state.currentVisibleIndex = snapshot.currentVisibleIndex;
     state.isCurrentSongVisible = snapshot.isCurrentSongVisible;
+    state.currentCover = '';
+    state.currentLyric = null;
+    state.parsedLyric = [];
     startPolling();
+    // 异步获取本地文件嵌入的封面和歌词
+    fetchLocalMeta(song);
   } catch (err) {
     console.error('播放失败:', err);
+  }
+}
+
+async function fetchLocalMeta(song) {
+  try {
+    const meta = await invoke('get_song_meta', { path: song.path });
+    if (meta.cover) state.currentCover = meta.cover;
+    if (meta.lyrics) {
+      state.currentLyric = { lyric: meta.lyrics };
+      state.parsedLyric = parseLrc(meta.lyrics);
+    }
+  } catch (e) {
+    // 忽略提取失败
   }
 }
 
@@ -175,7 +193,11 @@ async function playNext() {
       syncQueueIndex(song);
       syncVisiblePlaybackState(song);
       state.isPlaying = true;
+      state.currentCover = '';
+      state.currentLyric = null;
+      state.parsedLyric = [];
       startPolling();
+      fetchLocalMeta(song);
     }
   } catch (err) {
     console.error('下一首失败:', err);
@@ -190,7 +212,11 @@ async function playPrev() {
       syncQueueIndex(song);
       syncVisiblePlaybackState(song);
       state.isPlaying = true;
+      state.currentCover = '';
+      state.currentLyric = null;
+      state.parsedLyric = [];
       startPolling();
+      fetchLocalMeta(song);
     }
   } catch (err) {
     console.error('上一首失败:', err);
