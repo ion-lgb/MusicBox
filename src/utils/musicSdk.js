@@ -70,6 +70,7 @@ const kw = {
         songmid: songId,
         albumName: info.ALBUM ? decodeName(info.ALBUM) : '',
         interval: Number.isNaN(interval) ? 0 : interval,
+        img: songId ? `https://img1.kuwo.cn/star/albumcover/300/${songId}.jpg` : '',
         types,
       };
     });
@@ -107,6 +108,7 @@ const kg = {
         hash: item.FileHash,
         albumName: decodeName(item.AlbumName),
         interval: item.Duration || 0,
+        img: item.Image?.replace('{size}', '400') || '',
         types,
       });
       // 子分组
@@ -127,6 +129,7 @@ const kg = {
             hash: child.FileHash,
             albumName: decodeName(child.AlbumName),
             interval: child.Duration || 0,
+            img: child.Image?.replace('{size}', '400') || '',
             types: ctypes,
           });
         }
@@ -181,6 +184,7 @@ const tx = {
       if (file.size_128mp3) types.push({ type: '128k', size: sizeFormate(file.size_128mp3) });
       if (file.size_320mp3) types.push({ type: '320k', size: sizeFormate(file.size_320mp3) });
       if (file.size_flac) types.push({ type: 'flac', size: sizeFormate(file.size_flac) });
+      const albumMid = item.album?.mid || '';
       return {
         name: item.name + (item.title_extra || ''),
         singer: formatSingerName(item.singer, 'name'),
@@ -188,9 +192,10 @@ const tx = {
         songmid: item.mid,
         songId: item.id,
         albumName: item.album?.name || '',
-        albumMid: item.album?.mid || '',
+        albumMid,
         interval: item.interval || 0,
         strMediaMid: file.media_mid || '',
+        img: albumMid ? `https://y.qq.com/music/photo_new/T002R300x300M000${albumMid}.jpg` : '',
         types,
       };
     }).filter(s => s.songmid);
@@ -220,4 +225,81 @@ export async function searchMusic(keyword, page = 1, source = 'kw') {
   const sdk = sdkMap[source];
   if (!sdk) throw new Error(`不支持的搜索源: ${source}`);
   return sdk.search(keyword, page);
+}
+
+/**
+ * 获取封面 URL（内置 API，不依赖 LX 脚本）
+ */
+export async function fetchPic(song) {
+  const source = song.source || 'kw';
+  try {
+    if (source === 'kw' && song.songmid) {
+      // 酷我：artistpicserver 返回纯文本 URL
+      const text = await invoke('fetch_text', {
+        url: `http://artistpicserver.kuwo.cn/pic.web?corp=kuwo&type=rid_pic&pictype=500&size=500&rid=${song.songmid}`,
+      });
+      if (/^http/.test(text.trim())) return text.trim();
+    }
+    if (source === 'kg' && song.hash) {
+      // 酷狗：通过 hash 获取歌曲详情含封面
+      const text = await invoke('fetch_text', {
+        url: `https://wwwapi.kugou.com/yy/index.php?r=play/getdata&hash=${song.hash}&appid=1014&mid=0&platid=4`,
+      });
+      const body = JSON.parse(text);
+      if (body?.data?.img) return body.data.img;
+    }
+    if (source === 'tx' && song.albumMid) {
+      return `https://y.qq.com/music/photo_new/T002R500x500M000${song.albumMid}.jpg`;
+    }
+  } catch (e) {
+    // 忽略
+  }
+  // fallback: 搜索结果中的 img
+  return song.img || '';
+}
+
+/**
+ * 获取歌词 LRC（内置 API，不依赖 LX 脚本）
+ */
+export async function fetchLyric(song) {
+  const source = song.source || 'kw';
+  try {
+    if (source === 'kw' && song.songmid) {
+      // 酷我歌词 API
+      const text = await invoke('fetch_text', {
+        url: `http://m.kuwo.cn/newh5/singles/songinfoandlrc?musicId=${song.songmid}`,
+      });
+      const body = JSON.parse(text);
+      if (body?.data?.lrclist?.length) {
+        const lrc = body.data.lrclist
+          .map(l => {
+            const t = parseFloat(l.time);
+            const m = Math.floor(t / 60).toString().padStart(2, '0');
+            const s = (t % 60).toFixed(2).padStart(5, '0');
+            return `[${m}:${s}]${l.lineLyric}`;
+          })
+          .join('\n');
+        return lrc;
+      }
+    }
+    if (source === 'kg' && song.hash) {
+      // 酷狗歌词（通过歌曲详情 API）
+      const text = await invoke('fetch_text', {
+        url: `https://wwwapi.kugou.com/yy/index.php?r=play/getdata&hash=${song.hash}&appid=1014&mid=0&platid=4`,
+      });
+      const body = JSON.parse(text);
+      if (body?.data?.lyrics) return body.data.lyrics;
+    }
+    if (source === 'tx' && song.songmid) {
+      // QQ音乐歌词 API
+      const text = await invoke('fetch_text', {
+        url: `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${song.songmid}&format=json&nobase64=1`,
+      });
+      const body = JSON.parse(text);
+      if (body?.lyric) return body.lyric;
+    }
+  } catch (e) {
+    // 忽略
+  }
+  return '';
 }

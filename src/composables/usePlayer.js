@@ -67,6 +67,10 @@ const state = reactive({
   volume: 0.8,
   pollTimer: null,
   isDraggingProgress: false,
+  currentCover: '',
+  currentLyric: null,
+  parsedLyric: [],
+  showFullPlayer: false,
 });
 
 function syncVisiblePlaybackState(song = state.currentSong) {
@@ -259,6 +263,32 @@ function initKeyboard() {
   });
 }
 
+// ---- LRC 歌词解析 ----
+function parseLrc(lrcString) {
+  if (!lrcString) return [];
+  const result = [];
+  const lines = lrcString.split('\n');
+  const timeReg = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
+  for (const line of lines) {
+    const times = [];
+    let match;
+    while ((match = timeReg.exec(line)) !== null) {
+      const min = parseInt(match[1]);
+      const sec = parseInt(match[2]);
+      const ms = match[3] ? parseInt(match[3].padEnd(3, '0')) : 0;
+      times.push(min * 60 + sec + ms / 1000);
+    }
+    const text = line.replace(/\[\d{2}:\d{2}(?:\.\d{2,3})?\]/g, '').trim();
+    if (text) {
+      for (const time of times) {
+        result.push({ time, text });
+      }
+    }
+  }
+  result.sort((a, b) => a.time - b.time);
+  return result;
+}
+
 // 初始化键盘监听（调用一次）
 let _keyboardInited = false;
 function ensureKeyboard() {
@@ -289,6 +319,11 @@ export function usePlayer() {
     get isDraggingProgress() { return state.isDraggingProgress; },
     set isDraggingProgress(v) { state.isDraggingProgress = v; },
     set position(v) { state.position = v; },
+    get currentCover() { return state.currentCover; },
+    get currentLyric() { return state.currentLyric; },
+    get parsedLyric() { return state.parsedLyric; },
+    get showFullPlayer() { return state.showFullPlayer; },
+    set showFullPlayer(v) { state.showFullPlayer = v; },
 
     addFolder,
     removeFolder,
@@ -301,6 +336,7 @@ export function usePlayer() {
     setVolume,
     startPolling,
     stopPolling,
-    state, // 直接暴露 reactive 对象供模板绑定
+    parseLrc,
+    state,
   };
 }

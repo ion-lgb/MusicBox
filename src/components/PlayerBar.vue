@@ -15,9 +15,10 @@
     </div>
 
     <!-- 歌曲信息 -->
-    <div class="player-info">
+    <div class="player-info" @click="player.state.showFullPlayer = true" style="cursor: pointer">
       <div class="player-cover">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28">
+        <img v-if="player.state.currentCover" :src="player.state.currentCover" alt="cover" class="player-cover-img" />
+        <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28">
           <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
         </svg>
       </div>
@@ -111,6 +112,10 @@ function onProgressEnd() {
   background: rgba(var(--primary), 0.08);
   display: flex; align-items: center; justify-content: center;
   color: var(--text-color-tertiary); flex-shrink: 0;
+  overflow: hidden;
+}
+.player-cover-img {
+  width: 100%; height: 100%; object-fit: cover;
 }
 .player-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .player-title {

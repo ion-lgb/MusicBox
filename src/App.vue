@@ -22,6 +22,7 @@
           </main>
         </div>
         <PlayerBar />
+        <FullPlayer />
         <ImportModal v-model:show="showImportModal" @loaded="onScriptLoaded" />
       </div>
     </NMessageProvider>
@@ -36,9 +37,10 @@ import Titlebar from './components/Titlebar.vue';
 import Sidebar from './components/Sidebar.vue';
 import SongList from './components/SongList.vue';
 import PlayerBar from './components/PlayerBar.vue';
+import FullPlayer from './components/FullPlayer.vue';
 import ImportModal from './components/ImportModal.vue';
 import { LxSandbox } from './utils/lx-sandbox.js';
-import { searchMusic } from './utils/musicSdk.js';
+import { searchMusic, fetchPic, fetchLyric } from './utils/musicSdk.js';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { usePlayer } from './composables/usePlayer.js';
@@ -154,9 +156,32 @@ async function playSearchResult(song, index, playlist) {
     player.state.isPlaying = true;
     player.state.playbackQueue = playlistInfo;
     player.state.currentQueueIndex = index;
+    player.state.currentCover = song.img || '';
+    player.state.currentLyric = null;
+    player.state.parsedLyric = [];
     player.startPolling();
+    // 异步获取歌词（不阻塞播放）
+    fetchLyricAndCover(source, song);
   } catch (err) {
     console.error('[Play] FAIL:', err?.message || err);
+  }
+}
+
+async function fetchLyricAndCover(source, song) {
+  // 封面（内置 API）
+  try {
+    const picUrl = await fetchPic(song);
+    if (picUrl) player.state.currentCover = picUrl;
+  } catch (e) { /* ignore */ }
+  // 歌词（内置 API）
+  try {
+    const lrc = await fetchLyric(song);
+    if (lrc) {
+      player.state.currentLyric = { lyric: lrc };
+      player.state.parsedLyric = player.parseLrc(lrc);
+    }
+  } catch (e) {
+    console.warn('[Lyric] 获取歌词失败:', e?.message || e);
   }
 }
 
