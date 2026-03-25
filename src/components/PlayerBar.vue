@@ -61,14 +61,8 @@
 <script setup>
 import { NSlider } from 'naive-ui';
 import { usePlayer } from '../composables/usePlayer.js';
+import { formatTime } from '../utils/format.js';
 const player = usePlayer();
-
-function formatTime(s) {
-  if (!s || s <= 0) return '0:00';
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, '0')}`;
-}
 
 function onProgressChange(val) {
   player.state.position = val;

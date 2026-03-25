@@ -70,7 +70,6 @@ const showImportModal = ref(false);
 const sourceStatus = ref('未加载音源');
 const sourceStatusColor = ref('');
 let lxSandbox = null;
-let lxSources = null;
 const searchResults = ref([]);
 const isSearchMode = ref(false);
 const searchLoading = ref(false);
@@ -80,9 +79,10 @@ async function onScriptLoaded(content, scriptUrl) {
   sourceStatusColor.value = '';
   try {
     lxSandbox = new LxSandbox();
-    lxSources = await lxSandbox.load(content);
+    await lxSandbox.load(content);
     const meta = lxSandbox.meta;
-    const names = Object.keys(lxSources).map(k => lxSources[k].name || k).join(', ');
+    const sources = lxSandbox.sources;
+    const names = Object.keys(sources).map(k => sources[k].name || k).join(', ');
     sourceStatus.value = `✓ ${meta.name || '未命名'} (${names})`;
     sourceStatusColor.value = 'var(--primary-hex)';
     // 持久化脚本 URL，下次启动/HMR 自动重载
@@ -91,7 +91,6 @@ async function onScriptLoaded(content, scriptUrl) {
     sourceStatus.value = `✗ ${err.message}`;
     sourceStatusColor.value = '#ef4444';
     lxSandbox = null;
-    lxSources = null;
   }
 }
 
@@ -136,7 +135,7 @@ async function playSearchResult(song, index, playlist) {
       album: song.albumName || song.album || '',
       duration: song.interval || 0,
     };
-    const playlistInfo = playlist.map(s => ({
+    const playlistInfo = playlist.map((s, i) => ({
       path: `lx://${s.source || source}/${s.songmid || s.hash || s.name}`,
       file_name: `${s.name || ''} - ${s.singer || ''}.mp3`,
       title: s.name || '',
@@ -145,22 +144,8 @@ async function playSearchResult(song, index, playlist) {
       duration: s.interval || 0,
     }));
     playlistInfo[index] = songInfo;
-    await invoke('play_url', {
-      url,
-      songInfo,
-      index,
-      playlist: playlistInfo,
-    });
-    // 更新 usePlayer 状态，让 PlayerBar 显示正在播放
-    player.state.currentSong = songInfo;
-    player.state.isPlaying = true;
-    player.state.playbackQueue = playlistInfo;
-    player.state.currentQueueIndex = index;
-    player.state.currentCover = song.img || '';
-    player.state.currentLyric = null;
-    player.state.parsedLyric = [];
-    player.startPolling();
-    // 异步获取歌词（不阻塞播放）
+    player.playUrl(url, songInfo, index, playlistInfo);
+    // 异步获取歌词/封面（不阻塞播放）
     fetchLyricAndCover(source, song);
   } catch (err) {
     console.error('[Play] FAIL:', err?.message || err);

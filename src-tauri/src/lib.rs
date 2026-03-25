@@ -316,7 +316,7 @@ fn scan_music_dir(path: String) -> Result<Vec<SongInfo>, String> {
             if let Some(song) = parse_song(p) { songs.push(song); }
         }
     }
-    songs.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+    songs.sort_by_cached_key(|s| s.title.to_lowercase());
     Ok(songs)
 }
 

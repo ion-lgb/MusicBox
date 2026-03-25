@@ -99,6 +99,7 @@
 
 <script setup>
 import { usePlayer } from '../composables/usePlayer.js';
+import { formatTime } from '../utils/format.js';
 const player = usePlayer();
 
 const props = defineProps({
@@ -119,6 +120,7 @@ function onLocalRowClick(index) {
     lastClickTime = 0;
     lastClickIndex = -1;
   } else {
+    // Clicking a different row resets the double-click state
     lastClickTime = now;
     lastClickIndex = index;
   }

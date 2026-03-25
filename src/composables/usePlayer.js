@@ -4,6 +4,7 @@
  */
 import { reactive } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
+import { parseLrc } from '../utils/format.js';
 
 export function buildDisplayedSongs(folders, activeFolder) {
   const allSongs = folders.flatMap(folder => folder.songs);
@@ -65,7 +66,6 @@ const state = reactive({
   position: 0,
   duration: 0,
   volume: 0.8,
-  pollTimer: null,
   isDraggingProgress: false,
   currentCover: '',
   currentLyric: null,
@@ -146,14 +146,21 @@ async function playSongAt(index) {
     state.currentQueueIndex = snapshot.currentQueueIndex;
     state.currentVisibleIndex = snapshot.currentVisibleIndex;
     state.isCurrentSongVisible = snapshot.isCurrentSongVisible;
-    state.currentCover = '';
-    state.currentLyric = null;
-    state.parsedLyric = [];
-    startPolling();
-    // 异步获取本地文件嵌入的封面和歌词
-    fetchLocalMeta(song);
+    resetMediaState(song);
   } catch (err) {
     console.error('播放失败:', err);
+  }
+}
+
+// Clear cover/lyrics, start polling, and fetch embedded meta for local files
+function resetMediaState(song) {
+  state.currentCover = '';
+  state.currentLyric = null;
+  state.parsedLyric = [];
+  startPolling();
+  // Only fetch embedded meta for local files (URL songs get metadata from search result)
+  if (song?.path && !song.path.startsWith('lx://') && !song.path.startsWith('http')) {
+    fetchLocalMeta(song);
   }
 }
 
@@ -193,11 +200,7 @@ async function playNext() {
       syncQueueIndex(song);
       syncVisiblePlaybackState(song);
       state.isPlaying = true;
-      state.currentCover = '';
-      state.currentLyric = null;
-      state.parsedLyric = [];
-      startPolling();
-      fetchLocalMeta(song);
+      resetMediaState(song);
     }
   } catch (err) {
     console.error('下一首失败:', err);
@@ -212,11 +215,7 @@ async function playPrev() {
       syncQueueIndex(song);
       syncVisiblePlaybackState(song);
       state.isPlaying = true;
-      state.currentCover = '';
-      state.currentLyric = null;
-      state.parsedLyric = [];
-      startPolling();
-      fetchLocalMeta(song);
+      resetMediaState(song);
     }
   } catch (err) {
     console.error('上一首失败:', err);
@@ -240,16 +239,34 @@ async function setVolume(vol) {
   }
 }
 
+// Play a URL-based (LX music source) song — updates all playlist indices properly
+async function playUrl(url, songInfo, index, playlistInfo) {
+  try {
+    await invoke('play_url', { url, songInfo, index, playlist: playlistInfo });
+    state.playbackQueue = playlistInfo;
+    state.isPlaying = true;
+    state.currentSong = songInfo;
+    state.currentQueueIndex = index;
+    state.currentVisibleIndex = null;
+    state.isCurrentSongVisible = false;
+    resetMediaState(songInfo);
+  } catch (err) {
+    console.error('播放失败:', err);
+  }
+}
+
 // ---- 状态轮询 ----
+let _pollTimer = null;
+
 function startPolling() {
   stopPolling();
-  state.pollTimer = setInterval(pollStatus, 500);
+  _pollTimer = setInterval(pollStatus, 500);
 }
 
 function stopPolling() {
-  if (state.pollTimer) {
-    clearInterval(state.pollTimer);
-    state.pollTimer = null;
+  if (_pollTimer) {
+    clearInterval(_pollTimer);
+    _pollTimer = null;
   }
 }
 
@@ -266,7 +283,7 @@ async function pollStatus() {
       await playNext();
     }
   } catch (err) {
-    // ignore polling errors
+    console.warn('[pollStatus] 获取播放状态失败:', err);
   }
 }
 
@@ -289,33 +306,7 @@ function initKeyboard() {
   });
 }
 
-// ---- LRC 歌词解析 ----
-function parseLrc(lrcString) {
-  if (!lrcString) return [];
-  const result = [];
-  const lines = lrcString.split('\n');
-  const timeReg = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
-  for (const line of lines) {
-    const times = [];
-    let match;
-    while ((match = timeReg.exec(line)) !== null) {
-      const min = parseInt(match[1]);
-      const sec = parseInt(match[2]);
-      const ms = match[3] ? parseInt(match[3].padEnd(3, '0')) : 0;
-      times.push(min * 60 + sec + ms / 1000);
-    }
-    const text = line.replace(/\[\d{2}:\d{2}(?:\.\d{2,3})?\]/g, '').trim();
-    if (text) {
-      for (const time of times) {
-        result.push({ time, text });
-      }
-    }
-  }
-  result.sort((a, b) => a.time - b.time);
-  return result;
-}
-
-// 初始化键盘监听（调用一次）
+// ---- 键盘快捷键 ----
 let _keyboardInited = false;
 function ensureKeyboard() {
   if (!_keyboardInited) {
@@ -355,6 +346,7 @@ export function usePlayer() {
     removeFolder,
     selectFolder,
     playSongAt,
+    playUrl,
     togglePlayPause,
     playNext,
     playPrev,
